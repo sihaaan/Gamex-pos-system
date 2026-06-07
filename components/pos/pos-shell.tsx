@@ -40,6 +40,7 @@ type Resource = {
 type Service = {
   id: string;
   name: string;
+  description: string;
   pricingRule: { ratePerMinute: number };
 };
 type Product = {
@@ -147,8 +148,7 @@ export function PosShell() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [selectedTabId, setSelectedTabId] = useState("");
-  const [selectedTimedLineId, setSelectedTimedLineId] = useState("");
-  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [movingTimedLineId, setMovingTimedLineId] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedTender, setSelectedTender] =
     useState<TenderType>("UPI_PHONEPE");
@@ -183,7 +183,6 @@ export function PosShell() {
       bootstrapData.branches[0]?.id ||
       "";
     setSelectedBranchId(branchId);
-    setSelectedServiceId((current) => current || bootstrapData.services[0]?.id || "");
     setSelectedProductId((current) => current || bootstrapData.products[0]?.id || "");
 
     const tabsResponse = await fetch(
@@ -197,17 +196,15 @@ export function PosShell() {
       nextTabs.find((tab) => tab.id === preferredTabId)?.id ??
       nextTabs[0]?.id ??
       "";
-    const nextSelectedTab =
-      nextTabs.find((tab) => tab.id === nextSelectedTabId) ?? null;
-    const nextTimedLineId =
-      nextSelectedTab?.timedLines.some((line) => line.id === selectedTimedLineId)
-        ? selectedTimedLineId
-        : nextSelectedTab?.timedLines.find(isLiveTimedLine)?.id ??
-          nextSelectedTab?.timedLines[0]?.id ??
-          "";
     setTabs(nextTabs);
     setSelectedTabId(nextSelectedTabId);
-    setSelectedTimedLineId(nextTimedLineId);
+    setMovingTimedLineId((current) =>
+      nextTabs.some((tab) =>
+        tab.timedLines.some((line) => line.id === current && line.status === "RUNNING"),
+      )
+        ? current
+        : "",
+    );
     if (!nextSelectedTabId) {
       setQuote(null);
       setCheckoutAmount("");
@@ -262,23 +259,11 @@ export function PosShell() {
     bootstrap?.activeShift?.branchId ||
     bootstrap?.branches[0]?.id ||
     "";
-  const selectedService =
-    bootstrap?.services.find((service) => service.id === selectedServiceId) ??
-    null;
   const timedLines = selectedTab?.timedLines ?? [];
   const activeTimedLines = timedLines.filter(isLiveTimedLine);
-  const runningTimedLines = timedLines.filter(
-    (line) => line.status === "RUNNING",
-  );
-  const selectedTimedLine =
-    timedLines.find((line) => line.id === selectedTimedLineId) ??
-    activeTimedLines[0] ??
-    timedLines[0] ??
-    null;
   const canStartTimedSession = Boolean(
     bootstrap?.activeShift &&
       selectedTabId &&
-      selectedServiceId &&
       !actionPending,
   );
   const branchResources = useMemo(
@@ -387,45 +372,48 @@ export function PosShell() {
     }
   }
 
-  async function startSession(resourceId: string) {
-    if (!selectedTabId || !selectedServiceId) {
-      setMessage("Select a tab and service first.");
+  async function startSession(resource: Resource) {
+    if (!selectedTabId) {
+      setMessage("Select or create a customer tab first.");
       return;
     }
+
+    const service = findServiceForResource(resource, bootstrap?.services ?? []);
+    if (!service) {
+      setMessage(`No timed service is configured for ${resourceLabel(resource.kind)}.`);
+      return;
+    }
+
     const payload = await postJson<{ timedLine: TimedLine }>(
       "/api/service-sessions/start",
       {
         tabId: selectedTabId,
-        serviceCatalogId: selectedServiceId,
-        resourceId,
+        serviceCatalogId: service.id,
+        resourceId: resource.id,
       },
       { successMessage: "Timed session started." },
     );
     if (payload?.timedLine) {
-      setSelectedTimedLineId(payload.timedLine.id);
+      setMovingTimedLineId("");
     }
   }
 
-  async function transferSelectedSession(resourceId: string) {
-    if (!selectedTimedLine) {
-      setMessage("Select a timed session before transfer.");
-      return;
-    }
-    if (selectedTimedLine.status !== "RUNNING") {
-      setMessage("Only a running timed session can be transferred.");
+  async function moveTimedSession(line: TimedLine, resourceId: string) {
+    if (line.status !== "RUNNING") {
+      setMessage("Only a running timed session can be moved.");
       return;
     }
 
     const payload = await postJson<{ timedLine: TimedLine }>(
       "/api/service-sessions/transfer",
       {
-        tabTimedLineId: selectedTimedLine.id,
+        tabTimedLineId: line.id,
         toResourceId: resourceId,
       },
-      { successMessage: "Timed session transferred." },
+      { successMessage: "Timed session moved." },
     );
     if (payload?.timedLine) {
-      setSelectedTimedLineId(payload.timedLine.id);
+      setMovingTimedLineId("");
     }
   }
 
@@ -472,13 +460,13 @@ export function PosShell() {
       setLastPostedInvoice(payload.invoice);
       setCheckoutAmount("");
       setQuote(null);
-      setSelectedTimedLineId("");
+      setMovingTimedLineId("");
     }
   }
 
   function handleTabSelect(tabId: string) {
     setSelectedTabId(tabId);
-    setSelectedTimedLineId("");
+    setMovingTimedLineId("");
     setCheckoutAmount("");
     setQuote(null);
   }
@@ -486,7 +474,7 @@ export function PosShell() {
   function handleBranchChange(branchId: string) {
     setSelectedBranchId(branchId);
     setSelectedTabId("");
-    setSelectedTimedLineId("");
+    setMovingTimedLineId("");
     setCheckoutAmount("");
     setQuote(null);
     setCloseShiftArmed(false);
@@ -642,61 +630,61 @@ export function PosShell() {
         <div className="grid gap-4">
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">Resources</h2>
-              <select
-                className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-                value={selectedServiceId}
-                onChange={(event) => setSelectedServiceId(event.target.value)}
-              >
-                {bootstrap?.services.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name} - {formatPaise(service.pricingRule.ratePerMinute)}/min
-                  </option>
-                ))}
-              </select>
+              <div>
+                <h2 className="text-base font-semibold">Add session</h2>
+                <p className="text-sm text-zinc-600">
+                  Click an available Pool or PS5 resource to add it to the selected tab.
+                </p>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-              {branchResources.map((resource) => (
-                <button
-                  key={resource.id}
-                  aria-label={
-                    selectedService
-                      ? `Start ${selectedService.name} on ${resource.name}`
-                      : `Start session on ${resource.name}`
-                  }
-                  className="grid min-h-28 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={
-                    resource.status !== "AVAILABLE" || !canStartTimedSession
-                  }
-                  onClick={() => startSession(resource.id)}
-                >
-                  <span className="text-sm font-semibold">{resource.name}</span>
-                  <span className="text-xs text-zinc-600">
-                    {resource.kind === "POOL_TABLE" ? "Pool table" : "Console"}
-                  </span>
-                  <Badge
-                    tone={
-                      resource.status === "AVAILABLE"
-                        ? "success"
-                        : resource.status === "MAINTENANCE"
-                          ? "danger"
-                          : "warning"
+              {branchResources.map((resource) => {
+                const service = findServiceForResource(
+                  resource,
+                  bootstrap?.services ?? [],
+                );
+                const canStart =
+                  resource.status === "AVAILABLE" &&
+                  canStartTimedSession &&
+                  Boolean(service);
+
+                return (
+                  <button
+                    key={resource.id}
+                    aria-label={
+                      service
+                        ? `Add ${service.name} on ${resource.name} to current tab`
+                        : `Add timed session on ${resource.name} to current tab`
                     }
+                    className="grid min-h-32 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!canStart}
+                    onClick={() => startSession(resource)}
                   >
-                    {resource.status.replace("_", " ")}
-                  </Badge>
-                  {resource.status === "AVAILABLE" ? (
+                    <span className="text-sm font-semibold">{resource.name}</span>
                     <span className="text-xs text-zinc-600">
-                      {resourceStartState({
-                        hasShift: Boolean(bootstrap?.activeShift),
-                        hasTab: Boolean(selectedTabId),
-                        hasService: Boolean(selectedServiceId),
-                        actionPending,
-                      })}
+                      {resourceLabel(resource.kind)}
                     </span>
-                  ) : null}
-                </button>
-              ))}
+                    <Badge tone={resourceBadgeTone(resource.status)}>
+                      {formatStatus(resource.status)}
+                    </Badge>
+                    <span className="text-xs text-zinc-600">
+                      {service
+                        ? `${service.name} - ${formatPaise(service.pricingRule.ratePerMinute)}/min`
+                        : "Timed service missing"}
+                    </span>
+                    {resource.status === "AVAILABLE" ? (
+                      <span className="text-xs font-medium text-zinc-700">
+                        {resourceStartState({
+                          hasShift: Boolean(bootstrap?.activeShift),
+                          hasTab: Boolean(selectedTabId),
+                          hasService: Boolean(service),
+                          actionPending,
+                        })}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
               {!loading && branchResources.length === 0 ? (
                 <p className="col-span-full text-sm text-zinc-600">
                   No resources configured for this branch.
@@ -779,46 +767,33 @@ export function PosShell() {
                     )}
                   </div>
                   {timedLines.map((line) => {
-                    const isSelected = selectedTimedLine?.id === line.id;
+                    const isMoving = movingTimedLineId === line.id;
+                    const moveTargetKind = resourceKindForTimedLine(line);
+                    const availableMoveTargets = branchResources.filter(
+                      (resource) =>
+                        resource.status === "AVAILABLE" &&
+                        (!moveTargetKind || resource.kind === moveTargetKind),
+                    );
 
                     return (
                       <div
                         key={line.id}
-                        className={`rounded-md border p-3 ${
-                          isSelected
-                            ? "border-emerald-700 bg-emerald-50"
-                            : "border-zinc-200 bg-white"
-                        }`}
+                        className="rounded-md border border-zinc-200 bg-white p-3"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <label className="flex min-w-0 items-start gap-3">
-                            <input
-                              aria-label={`Select ${line.descriptionSnapshot} on ${
-                                line.resource?.name ?? "no resource"
-                              } for transfer`}
-                              checked={isSelected}
-                              className="mt-1 h-4 w-4 accent-emerald-700"
-                              name="selectedTimedLine"
-                              onChange={() => setSelectedTimedLineId(line.id)}
-                              type="radio"
-                            />
-                            <span className="min-w-0">
-                              <span className="flex flex-wrap items-center gap-2">
-                                <span className="truncate text-sm font-medium">
-                                  {line.descriptionSnapshot}
-                                </span>
-                                <Badge tone={timedLineBadgeTone(line.status)}>
-                                  {formatStatus(line.status)}
-                                </Badge>
+                          <div className="min-w-0">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="truncate text-sm font-medium">
+                                {line.descriptionSnapshot}
                               </span>
-                              <span className="mt-1 block text-xs text-zinc-600">
-                                {line.resource?.name ?? "No resource"}
-                                {isSelected && line.status === "RUNNING"
-                                  ? " - selected for transfer"
-                                  : ""}
-                              </span>
+                              <Badge tone={timedLineBadgeTone(line.status)}>
+                                {formatStatus(line.status)}
+                              </Badge>
                             </span>
-                          </label>
+                            <span className="mt-1 block text-xs text-zinc-600">
+                              {line.resource?.name ?? "No resource"}
+                            </span>
+                          </div>
                           <div className="flex flex-wrap justify-end gap-1">
                             <Button
                               aria-label={`Pause ${line.descriptionSnapshot} on ${
@@ -827,7 +802,7 @@ export function PosShell() {
                               className="h-9 px-2"
                               variant="secondary"
                               onClick={() => {
-                                setSelectedTimedLineId(line.id);
+                                setMovingTimedLineId("");
                                 void postJson(
                                   "/api/service-sessions/pause",
                                   { tabTimedLineId: line.id },
@@ -846,7 +821,7 @@ export function PosShell() {
                               className="h-9 px-2"
                               variant="secondary"
                               onClick={() => {
-                                setSelectedTimedLineId(line.id);
+                                setMovingTimedLineId("");
                                 void postJson(
                                   "/api/service-sessions/resume",
                                   { tabTimedLineId: line.id },
@@ -865,7 +840,7 @@ export function PosShell() {
                               className="h-9 px-2"
                               variant="secondary"
                               onClick={() => {
-                                setSelectedTimedLineId(line.id);
+                                setMovingTimedLineId("");
                                 void postJson(
                                   "/api/service-sessions/stop",
                                   { tabTimedLineId: line.id },
@@ -880,8 +855,49 @@ export function PosShell() {
                               <Square className="h-4 w-4" />
                               Stop
                             </Button>
+                            <Button
+                              aria-label={`Move ${line.descriptionSnapshot} from ${
+                                line.resource?.name ?? "no resource"
+                              }`}
+                              className="h-9 px-2"
+                              variant="ghost"
+                              onClick={() =>
+                                setMovingTimedLineId((current) =>
+                                  current === line.id ? "" : line.id,
+                                )
+                              }
+                              disabled={actionPending || line.status !== "RUNNING"}
+                            >
+                              <MoveRight className="h-4 w-4" />
+                              Move
+                            </Button>
                           </div>
                         </div>
+                        {isMoving ? (
+                          <div className="mt-3 rounded-md bg-zinc-50 p-3">
+                            <p className="mb-2 text-xs font-medium text-zinc-700">
+                              Move this session to:
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {availableMoveTargets.map((resource) => (
+                                <Button
+                                  key={resource.id}
+                                  variant="secondary"
+                                  onClick={() => moveTimedSession(line, resource.id)}
+                                  disabled={actionPending}
+                                >
+                                  <MoveRight className="h-4 w-4" />
+                                  {resource.name}
+                                </Button>
+                              ))}
+                            </div>
+                            {availableMoveTargets.length === 0 ? (
+                              <p className="text-sm text-zinc-600">
+                                No available resources to move into.
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -1024,62 +1040,6 @@ export function PosShell() {
             )}
           </div>
 
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">Transfer selected</h2>
-              {runningTimedLines.length > 1 ? (
-                <Badge tone="warning">{runningTimedLines.length} running</Badge>
-              ) : null}
-            </div>
-            {selectedTimedLine ? (
-              <div className="mb-3 rounded-md bg-zinc-50 p-3 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-medium">
-                    {selectedTimedLine.descriptionSnapshot}
-                  </span>
-                  <Badge tone={timedLineBadgeTone(selectedTimedLine.status)}>
-                    {formatStatus(selectedTimedLine.status)}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-xs text-zinc-600">
-                  {selectedTimedLine.resource?.name ?? "No resource"}
-                </p>
-              </div>
-            ) : (
-              <p className="mb-3 rounded-md bg-zinc-50 p-3 text-sm text-zinc-600">
-                No timed session selected.
-              </p>
-            )}
-            <div className="grid gap-2">
-              {branchResources
-                .filter((resource) => resource.status === "AVAILABLE")
-                .slice(0, 6)
-                .map((resource) => (
-                  <Button
-                    key={resource.id}
-                    variant="ghost"
-                    disabled={
-                      actionPending || selectedTimedLine?.status !== "RUNNING"
-                    }
-                    onClick={() => transferSelectedSession(resource.id)}
-                  >
-                    <MoveRight className="h-4 w-4" />
-                    {resource.name}
-                  </Button>
-                ))}
-              {selectedTimedLine?.status && selectedTimedLine.status !== "RUNNING" ? (
-                <p className="text-sm text-zinc-600">
-                  Only running timed sessions can be transferred.
-                </p>
-              ) : null}
-              {branchResources.filter((resource) => resource.status === "AVAILABLE")
-                .length === 0 ? (
-                <p className="text-sm text-zinc-600">
-                  No available resources for transfer.
-                </p>
-              ) : null}
-            </div>
-          </div>
         </aside>
       </section>
     </main>
@@ -1133,6 +1093,50 @@ function formatStatus(status: string): string {
   return status.replaceAll("_", " ");
 }
 
+function findServiceForResource(
+  resource: Resource,
+  services: readonly Service[],
+): Service | null {
+  const candidates =
+    resource.kind === "POOL_TABLE"
+      ? ["pool"]
+      : ["ps5", "console"];
+
+  return (
+    services.find((service) => {
+      const searchable = `${service.name} ${service.description}`.toLowerCase();
+      return candidates.some((candidate) => searchable.includes(candidate));
+    }) ?? null
+  );
+}
+
+function resourceLabel(kind: Resource["kind"]): string {
+  return kind === "POOL_TABLE" ? "Pool table" : "PS5 console";
+}
+
+function resourceBadgeTone(
+  status: Resource["status"],
+): "neutral" | "success" | "warning" | "danger" {
+  if (status === "AVAILABLE") {
+    return "success";
+  }
+  if (status === "MAINTENANCE") {
+    return "danger";
+  }
+  return "warning";
+}
+
+function resourceKindForTimedLine(line: TimedLine): Resource["kind"] | null {
+  const description = line.descriptionSnapshot.toLowerCase();
+  if (description.includes("pool")) {
+    return "POOL_TABLE";
+  }
+  if (description.includes("ps5") || description.includes("console")) {
+    return "CONSOLE";
+  }
+  return null;
+}
+
 function resourceStartState({
   hasShift,
   hasTab,
@@ -1154,7 +1158,7 @@ function resourceStartState({
     return "Select tab";
   }
   if (!hasService) {
-    return "Select service";
+    return "Service missing";
   }
   return "Ready to start";
 }

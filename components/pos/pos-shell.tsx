@@ -6,13 +6,16 @@ import {
   CirclePause,
   CirclePlay,
   CreditCard,
+  ExternalLink,
   LogOut,
   MoveRight,
   Plus,
   ReceiptText,
   Square,
+  Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OfflineStatus } from "@/components/pwa/offline-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,6 +105,17 @@ type TenderType =
   | "UPI_PHONEPE"
   | "UPI_OTHER"
   | "CARD_RECORDED";
+type PaymentDraft = {
+  id: string;
+  tenderType: TenderType;
+  amount: string;
+  reference: string;
+};
+type NormalizedPaymentDraft = {
+  tenderType: TenderType;
+  amount: number;
+  reference?: string;
+};
 type CheckoutQuote = {
   lines: InvoiceLine[];
   taxableValue: number;
@@ -114,6 +128,7 @@ type CheckoutQuote = {
   serverNow: string;
 };
 type PostedInvoice = {
+  id: string;
   invoiceNumber: string;
   taxableValue: number;
   cgstAmount: number;
@@ -150,9 +165,10 @@ export function PosShell() {
   const [selectedTabId, setSelectedTabId] = useState("");
   const [movingTimedLineId, setMovingTimedLineId] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
-  const [selectedTender, setSelectedTender] =
-    useState<TenderType>("UPI_PHONEPE");
-  const [checkoutAmount, setCheckoutAmount] = useState("");
+  const [paymentDrafts, setPaymentDrafts] = useState<PaymentDraft[]>([
+    createPaymentDraft("payment-1"),
+  ]);
+  const paymentsEditedRef = useRef(false);
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [customerLabel, setCustomerLabel] = useState("");
@@ -207,12 +223,12 @@ export function PosShell() {
     );
     if (!nextSelectedTabId) {
       setQuote(null);
-      setCheckoutAmount("");
+      resetPaymentDrafts();
     }
     setLoading(false);
   }
 
-  async function refreshQuote(tabId: string) {
+  const refreshQuote = useCallback(async (tabId: string) => {
     setQuoteLoading(true);
     const response = await fetch(
       `/api/checkout/quote?tabId=${encodeURIComponent(tabId)}`,
@@ -227,7 +243,17 @@ export function PosShell() {
 
     const payload = (await response.json()) as { quote: CheckoutQuote };
     setQuote(payload.quote);
-  }
+    if (!paymentsEditedRef.current) {
+      setPaymentDrafts([
+        createPaymentDraft(
+          "payment-1",
+          payload.quote.totalAmount > 0
+            ? paiseToRupeeInput(payload.quote.totalAmount)
+            : "",
+        ),
+      ]);
+    }
+  }, []);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -251,7 +277,7 @@ export function PosShell() {
       refreshQuote(selectedTabId).catch(() => setQuote(null));
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [selectedTabId, tabs]);
+  }, [refreshQuote, selectedTabId, tabs]);
 
   const selectedTab = tabs.find((tab) => tab.id === selectedTabId) ?? null;
   const currentBranchId =
@@ -272,6 +298,22 @@ export function PosShell() {
         (resource) => resource.branchId === currentBranchId,
       ) ?? [],
     [bootstrap?.resources, currentBranchId],
+  );
+  const paymentSummary = useMemo(
+    () => summarizePaymentDrafts(paymentDrafts),
+    [paymentDrafts],
+  );
+  const paymentBalance = quote
+    ? quote.totalAmount - paymentSummary.totalAmount
+    : 0;
+  const canPostCheckout = Boolean(
+    quote &&
+      quote.totalAmount > 0 &&
+      !quote.hasActiveTimedLines &&
+      paymentSummary.payments.length > 0 &&
+      !paymentSummary.hasInvalidAmount &&
+      paymentBalance === 0 &&
+      !actionPending,
   );
 
   async function postJson<TPayload>(
@@ -442,23 +484,35 @@ export function PosShell() {
       setMessage("Stop all timed sessions before final checkout.");
       return;
     }
-    const fallbackAmount = quote ? (quote.totalAmount / 100).toFixed(2) : "";
-    const amount = Math.round(Number(checkoutAmount || fallbackAmount) * 100);
-    if (!Number.isInteger(amount) || amount <= 0) {
-      setMessage("Enter the received amount before checkout.");
+    if (!quote) {
+      setMessage("Wait for the server total before checkout.");
+      return;
+    }
+    if (paymentSummary.hasInvalidAmount) {
+      setMessage("Use payment amounts like 500 or 500.50.");
+      return;
+    }
+    if (paymentSummary.payments.length === 0) {
+      setMessage("Enter at least one payment amount before checkout.");
+      return;
+    }
+    if (paymentSummary.totalAmount !== quote.totalAmount) {
+      setMessage(
+        `Payment split is ${formatPaise(paymentSummary.totalAmount)}. Server total is ${formatPaise(quote.totalAmount)}.`,
+      );
       return;
     }
     const payload = await postJson<{ invoice: PostedInvoice }>(
       "/api/checkout",
       {
         tabId: selectedTabId,
-        payments: [{ tenderType: selectedTender, amount }],
+        payments: paymentSummary.payments,
       },
       { successMessage: "Checkout posted." },
     );
     if (payload?.invoice) {
       setLastPostedInvoice(payload.invoice);
-      setCheckoutAmount("");
+      resetPaymentDrafts();
       setQuote(null);
       setMovingTimedLineId("");
     }
@@ -467,7 +521,7 @@ export function PosShell() {
   function handleTabSelect(tabId: string) {
     setSelectedTabId(tabId);
     setMovingTimedLineId("");
-    setCheckoutAmount("");
+    resetPaymentDrafts();
     setQuote(null);
   }
 
@@ -475,11 +529,83 @@ export function PosShell() {
     setSelectedBranchId(branchId);
     setSelectedTabId("");
     setMovingTimedLineId("");
-    setCheckoutAmount("");
+    resetPaymentDrafts();
     setQuote(null);
     setCloseShiftArmed(false);
     setMessage(null);
     void refresh({ branchId, preferredTabId: "" });
+  }
+
+  function resetPaymentDrafts(amountPaise?: number) {
+    setPaymentDrafts([
+      createPaymentDraft(
+        "payment-1",
+        typeof amountPaise === "number" && amountPaise > 0
+          ? paiseToRupeeInput(amountPaise)
+          : "",
+      ),
+    ]);
+    paymentsEditedRef.current = false;
+  }
+
+  function updatePaymentDraft(
+    paymentDraftId: string,
+    patch: Partial<Omit<PaymentDraft, "id">>,
+  ) {
+    paymentsEditedRef.current = true;
+    setPaymentDrafts((current) =>
+      current.map((draft) =>
+        draft.id === paymentDraftId ? { ...draft, ...patch } : draft,
+      ),
+    );
+  }
+
+  function addPaymentDraft() {
+    paymentsEditedRef.current = true;
+    setPaymentDrafts((current) =>
+      current.length >= 5
+        ? current
+        : [...current, createPaymentDraft(makePaymentDraftId())],
+    );
+  }
+
+  function removePaymentDraft(paymentDraftId: string) {
+    paymentsEditedRef.current = true;
+    setPaymentDrafts((current) =>
+      current.length === 1
+        ? current
+        : current.filter((draft) => draft.id !== paymentDraftId),
+    );
+  }
+
+  function useTotalPayment() {
+    if (!quote) {
+      return;
+    }
+    resetPaymentDrafts(quote.totalAmount);
+  }
+
+  function fillPaymentRemainder(paymentDraftId: string) {
+    if (!quote) {
+      return;
+    }
+
+    paymentsEditedRef.current = true;
+    setPaymentDrafts((current) => {
+      const otherTotal = current.reduce((total, draft) => {
+        if (draft.id === paymentDraftId) {
+          return total;
+        }
+        return total + (parseRupeeInputToPaise(draft.amount) ?? 0);
+      }, 0);
+      const remainingAmount = Math.max(quote.totalAmount - otherTotal, 0);
+
+      return current.map((draft) =>
+        draft.id === paymentDraftId
+          ? { ...draft, amount: paiseToRupeeInput(remainingAmount) }
+          : draft,
+      );
+    });
   }
 
   const shiftWarnings = lastShiftSummary
@@ -559,7 +685,15 @@ export function PosShell() {
                 </p>
               </div>
             </div>
-            <Badge tone="success">Server confirmed</Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="success">Server confirmed</Badge>
+              <Button asChild className="bg-white" variant="secondary">
+                <Link href={`/invoices/${lastPostedInvoice.id}`}>
+                  <ExternalLink className="h-4 w-4" />
+                  Open invoice
+                </Link>
+              </Button>
+            </div>
           </div>
           <div className="mt-3 grid gap-2 text-sm">
             {lastPostedInvoice.lines.map((line, index) => (
@@ -989,44 +1123,112 @@ export function PosShell() {
                       </p>
                     ) : null}
                   </div>
-                  <select
-                    className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-                    disabled={actionPending}
-                    value={selectedTender}
-                    onChange={(event) =>
-                      setSelectedTender(event.target.value as TenderType)
-                    }
-                  >
-                    <option value="UPI_GOOGLE_PAY">UPI - Google Pay</option>
-                    <option value="UPI_PHONEPE">UPI - PhonePe</option>
-                    <option value="UPI_OTHER">UPI - Other</option>
-                    <option value="CARD_RECORDED">Card recorded</option>
-                    <option value="CASH">Cash</option>
-                  </select>
-                  <Input
-                    disabled={actionPending}
-                    inputMode="decimal"
-                    placeholder="Amount received"
-                    value={checkoutAmount}
-                    onChange={(event) => setCheckoutAmount(event.target.value)}
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      if (quote) {
-                        setCheckoutAmount((quote.totalAmount / 100).toFixed(2));
-                      }
-                    }}
-                    disabled={!quote || actionPending}
-                  >
-                    Use total
-                  </Button>
+                  <div className="grid gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">Payment split</p>
+                      <Badge tone={paymentBalance === 0 ? "success" : "warning"}>
+                        {paymentBalanceLabel(paymentBalance)}
+                      </Badge>
+                    </div>
+                    {paymentDrafts.map((paymentDraft, index) => (
+                      <div
+                        key={paymentDraft.id}
+                        className="grid gap-2 rounded-md border border-zinc-200 bg-white p-2"
+                      >
+                        <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
+                          <select
+                            aria-label={`Tender ${index + 1}`}
+                            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+                            disabled={actionPending}
+                            value={paymentDraft.tenderType}
+                            onChange={(event) =>
+                              updatePaymentDraft(paymentDraft.id, {
+                                tenderType: event.target.value as TenderType,
+                              })
+                            }
+                          >
+                            <option value="UPI_GOOGLE_PAY">UPI - Google Pay</option>
+                            <option value="UPI_PHONEPE">UPI - PhonePe</option>
+                            <option value="UPI_OTHER">UPI - Other</option>
+                            <option value="CARD_RECORDED">Card recorded</option>
+                            <option value="CASH">Cash</option>
+                          </select>
+                          <Input
+                            aria-label={`Tender ${index + 1} amount`}
+                            disabled={actionPending}
+                            inputMode="decimal"
+                            placeholder="Amount"
+                            value={paymentDraft.amount}
+                            onChange={(event) =>
+                              updatePaymentDraft(paymentDraft.id, {
+                                amount: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                          <Input
+                            aria-label={`Tender ${index + 1} reference`}
+                            disabled={actionPending}
+                            placeholder="UPI ref / note"
+                            value={paymentDraft.reference}
+                            onChange={(event) =>
+                              updatePaymentDraft(paymentDraft.id, {
+                                reference: event.target.value,
+                              })
+                            }
+                          />
+                          <Button
+                            className="px-3"
+                            disabled={!quote || actionPending}
+                            onClick={() => fillPaymentRemainder(paymentDraft.id)}
+                            variant="secondary"
+                          >
+                            Fill rest
+                          </Button>
+                          <Button
+                            aria-label={`Remove tender ${index + 1}`}
+                            className="px-3"
+                            disabled={paymentDrafts.length === 1 || actionPending}
+                            onClick={() => removePaymentDraft(paymentDraft.id)}
+                            variant="ghost"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        variant="secondary"
+                        onClick={addPaymentDraft}
+                        disabled={paymentDrafts.length >= 5 || actionPending}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add tender
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={useTotalPayment}
+                        disabled={!quote || actionPending}
+                      >
+                        Use total
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 rounded-md bg-zinc-50 p-3 text-sm">
+                      <span className="text-zinc-600">Payment total</span>
+                      <span className="text-right font-semibold">
+                        {formatPaise(paymentSummary.totalAmount)}
+                      </span>
+                      <span className="text-zinc-600">Server total</span>
+                      <span className="text-right font-semibold">
+                        {quote ? formatPaise(quote.totalAmount) : "--"}
+                      </span>
+                    </div>
+                  </div>
                   <Button
                     onClick={checkout}
-                    disabled={
-                      !quote || quote.totalAmount <= 0 || quote.hasActiveTimedLines
-                      || actionPending
-                    }
+                    disabled={!canPostCheckout}
                   >
                     <CreditCard className="h-4 w-4" />
                     Post checkout
@@ -1068,6 +1270,89 @@ function invoiceLineMeta(line: InvoiceLine): string {
   }
 
   return `${line.quantity ?? 1} x ${formatPaise(line.unitPrice)}`;
+}
+
+function createPaymentDraft(
+  id: string,
+  amount = "",
+  tenderType: TenderType = "UPI_PHONEPE",
+): PaymentDraft {
+  return {
+    id,
+    tenderType,
+    amount,
+    reference: "",
+  };
+}
+
+function makePaymentDraftId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `payment-${Date.now()}`;
+}
+
+function summarizePaymentDrafts(paymentDrafts: readonly PaymentDraft[]): {
+  payments: NormalizedPaymentDraft[];
+  totalAmount: number;
+  hasInvalidAmount: boolean;
+} {
+  const payments: NormalizedPaymentDraft[] = [];
+  let totalAmount = 0;
+  let hasInvalidAmount = false;
+
+  for (const paymentDraft of paymentDrafts) {
+    const amount = parseRupeeInputToPaise(paymentDraft.amount);
+
+    if (amount === null) {
+      if (paymentDraft.amount.trim() !== "") {
+        hasInvalidAmount = true;
+      }
+      continue;
+    }
+
+    if (amount <= 0) {
+      continue;
+    }
+
+    const reference = paymentDraft.reference.trim();
+    totalAmount += amount;
+    payments.push({
+      tenderType: paymentDraft.tenderType,
+      amount,
+      ...(reference ? { reference } : {}),
+    });
+  }
+
+  return { payments, totalAmount, hasInvalidAmount };
+}
+
+function parseRupeeInputToPaise(value: string): number | null {
+  const normalized = value.trim();
+  if (!/^\d+(\.\d{0,2})?$/.test(normalized)) {
+    return null;
+  }
+
+  const [rupees, paise = ""] = normalized.split(".");
+  const rupeeAmount = Number(rupees);
+  const paiseAmount = Number(paise.padEnd(2, "0"));
+
+  if (!Number.isSafeInteger(rupeeAmount) || !Number.isSafeInteger(paiseAmount)) {
+    return null;
+  }
+
+  return rupeeAmount * 100 + paiseAmount;
+}
+
+function paiseToRupeeInput(amount: number): string {
+  return (amount / 100).toFixed(2);
+}
+
+function paymentBalanceLabel(balance: number): string {
+  if (balance === 0) {
+    return "Matched";
+  }
+  if (balance > 0) {
+    return `${formatPaise(balance)} remaining`;
+  }
+  return `${formatPaise(Math.abs(balance))} over`;
 }
 
 function isLiveTimedLine(line: TimedLine): boolean {

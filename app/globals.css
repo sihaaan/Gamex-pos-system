@@ -28,3 +28,9 @@ select,
 textarea {
   font: inherit;
 }
+
+@media print {
+  body {
+    background: white;
+  }
+}

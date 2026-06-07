@@ -39,7 +39,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-zinc-50 text-zinc-950">
         <PwaBoot />
-        <header className="border-b border-zinc-200 bg-white">
+        <header className="border-b border-zinc-200 bg-white print:hidden">
           <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <Link href="/pos" className="text-base font-semibold tracking-normal">
               GameX POS

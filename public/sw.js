@@ -1,4 +1,4 @@
-const CACHE_NAME = "gamex-pos-shell-v1";
+const CACHE_NAME = "gamex-pos-shell-v2";
 const APP_SHELL = ["/", "/pos", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

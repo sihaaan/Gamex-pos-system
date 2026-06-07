@@ -181,6 +181,18 @@ export function PosShell() {
   const [actionPending, setActionPending] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const resetPaymentDrafts = useCallback((amountPaise?: number) => {
+    setPaymentDrafts([
+      createPaymentDraft(
+        "payment-1",
+        typeof amountPaise === "number" && amountPaise > 0
+          ? paiseToRupeeInput(amountPaise)
+          : "",
+      ),
+    ]);
+    paymentsEditedRef.current = false;
+  }, []);
+
   async function refresh(options?: { branchId?: string; preferredTabId?: string }) {
     setLoading(true);
     const bootstrapResponse = await fetch("/api/pos/bootstrap", {
@@ -536,18 +548,6 @@ export function PosShell() {
     void refresh({ branchId, preferredTabId: "" });
   }
 
-  function resetPaymentDrafts(amountPaise?: number) {
-    setPaymentDrafts([
-      createPaymentDraft(
-        "payment-1",
-        typeof amountPaise === "number" && amountPaise > 0
-          ? paiseToRupeeInput(amountPaise)
-          : "",
-      ),
-    ]);
-    paymentsEditedRef.current = false;
-  }
-
   function updatePaymentDraft(
     paymentDraftId: string,
     patch: Partial<Omit<PaymentDraft, "id">>,
@@ -582,7 +582,17 @@ export function PosShell() {
     if (!quote) {
       return;
     }
-    resetPaymentDrafts(quote.totalAmount);
+    const currentPrimaryPayment = paymentDrafts[0];
+    setPaymentDrafts([
+      createPaymentDraft(
+        "payment-1",
+        paiseToRupeeInput(quote.totalAmount),
+        currentPrimaryPayment?.tenderType ?? "UPI_PHONEPE",
+        currentPrimaryPayment?.reference ?? "",
+      ),
+    ]);
+    paymentsEditedRef.current = true;
+    setMessage("Payment set to the server total.");
   }
 
   function fillPaymentRemainder(paymentDraftId: string) {
@@ -1276,12 +1286,13 @@ function createPaymentDraft(
   id: string,
   amount = "",
   tenderType: TenderType = "UPI_PHONEPE",
+  reference = "",
 ): PaymentDraft {
   return {
     id,
     tenderType,
     amount,
-    reference: "",
+    reference,
   };
 }
 

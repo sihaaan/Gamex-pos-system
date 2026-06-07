@@ -1,0 +1,878 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  STAFF
+  MANAGER
+  OWNER
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+  REOPENED
+}
+
+enum ResourceKind {
+  POOL_TABLE
+  CONSOLE
+}
+
+enum ResourceStatus {
+  AVAILABLE
+  OCCUPIED
+  PAUSED
+  MAINTENANCE
+}
+
+enum TabStatus {
+  OPEN
+  CLOSED
+  VOIDED
+  REOPENED
+}
+
+enum TimedLineStatus {
+  RUNNING
+  PAUSED
+  STOPPED
+  CLOSED
+  VOIDED
+}
+
+enum SessionEventType {
+  STARTED
+  PAUSED
+  RESUMED
+  STOPPED
+  TRANSFERRED
+  CLOSED
+  MANUAL_ADJUSTED
+}
+
+enum TenderType {
+  CASH
+  UPI_GOOGLE_PAY
+  UPI_PHONEPE
+  UPI_OTHER
+  CARD_RECORDED
+}
+
+enum InvoiceStatus {
+  POSTED
+  VOIDED
+}
+
+enum CreditNoteStatus {
+  POSTED
+  VOIDED
+}
+
+enum RefundStatus {
+  POSTED
+  VOIDED
+}
+
+enum StockMovementType {
+  SALE
+  ADJUSTMENT
+  WASTAGE
+  REFUND
+}
+
+enum TaxCodeKind {
+  HSN
+  SAC
+}
+
+enum JournalEntrySource {
+  CHECKOUT
+  REFUND
+  CREDIT_NOTE
+  STOCK_ADJUSTMENT
+}
+
+enum JournalLineSide {
+  DEBIT
+  CREDIT
+}
+
+enum SensitiveAction {
+  VOID_TAB
+  VOID_INVOICE
+  HIGH_DISCOUNT
+  PRICE_OVERRIDE
+  RETROACTIVE_SESSION_EDIT
+  REFUND
+  CREDIT_NOTE
+  STOCK_ADJUSTMENT
+  REOPEN_CLOSED_TAB
+  REOPEN_OR_ADJUST_SHIFT
+  CHANGE_TAX_PRICING_CONFIG
+}
+
+enum OverrideStatus {
+  APPROVED
+  REJECTED
+}
+
+model LegalEntity {
+  id        String   @id @default(cuid())
+  name      String
+  gstin     String   @unique
+  address   String
+  stateCode String   @map("state_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  auditLogs           AuditLog[]
+  branches            Branch[]
+  creditNotes         CreditNote[]
+  gstInvoices         GstInvoice[]
+  invoiceSeries       InvoiceSeries[]
+  journalAccounts     JournalAccount[]
+  journalEntries      JournalEntry[]
+  managerOverrides    ManagerOverride[]
+  operatorShifts      OperatorShift[]
+  payments            Payment[]
+  pricingRules        PricingRule[]
+  productCatalog      ProductCatalog[]
+  refundPayments      RefundPayment[]
+  resources           Resource[]
+  rolePermissions     RolePermission[]
+  serviceCatalog      ServiceCatalog[]
+  sessions            Session[]
+  sessionEvents       ServiceSessionEvent[]
+  shiftSummaries      ShiftCloseSummary[]
+  stockMovements      StockMovement[]
+  tabs                Tab[]
+  timedLines          TabTimedLine[]
+  retailLines         TabRetailLine[]
+  gstInvoiceLines     GstInvoiceLine[]
+  creditNoteLines     CreditNoteLine[]
+  journalLines        JournalLine[]
+  taxRates            TaxRate[]
+  users               User[]
+
+  @@map("legal_entities")
+}
+
+model Branch {
+  id            String   @id @default(cuid())
+  legalEntityId String   @map("legal_entity_id")
+  name          String
+  code          String
+  address       String
+  stateCode     String   @map("state_code")
+  timezone      String   @default("Asia/Kolkata")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  legalEntity        LegalEntity         @relation(fields: [legalEntityId], references: [id])
+  creditNotes        CreditNote[]
+  gstInvoices        GstInvoice[]
+  invoiceSeries      InvoiceSeries[]
+  managerOverrides   ManagerOverride[]
+  operatorShifts     OperatorShift[]
+  payments           Payment[]
+  productCatalog     ProductCatalog[]
+  refundPayments     RefundPayment[]
+  resources          Resource[]
+  serviceCatalog     ServiceCatalog[]
+  shiftSummaries     ShiftCloseSummary[]
+  stockMovements     StockMovement[]
+  tabs               Tab[]
+  timedLines         TabTimedLine[]
+  retailLines        TabRetailLine[]
+  gstInvoiceLines    GstInvoiceLine[]
+  creditNoteLines    CreditNoteLine[]
+  sessionEvents      ServiceSessionEvent[]
+
+  @@unique([legalEntityId, code])
+  @@index([legalEntityId])
+  @@map("branches")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  legalEntityId     String    @map("legal_entity_id")
+  branchId          String?   @map("branch_id")
+  email             String    @unique
+  name              String
+  role              UserRole
+  passwordHash      String    @map("password_hash")
+  isActive          Boolean   @default(true) @map("is_active")
+  mfaEnabled        Boolean   @default(false) @map("mfa_enabled")
+  mfaSecretEnvelope String?   @map("mfa_secret_envelope")
+  lastLoginAt       DateTime? @map("last_login_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  legalEntity      LegalEntity           @relation(fields: [legalEntityId], references: [id])
+  auditLogs        AuditLog[]
+  createdTabs      Tab[]                 @relation("TabCreatedBy")
+  managerOverrides ManagerOverride[]     @relation("ManagerOverrideActor")
+  sessions         Session[]
+  shifts           OperatorShift[]
+  sessionEvents    ServiceSessionEvent[]
+
+  @@index([legalEntityId])
+  @@index([branchId])
+  @@map("users")
+}
+
+model Session {
+  id                String   @id @default(cuid())
+  legalEntityId     String   @map("legal_entity_id")
+  userId            String   @map("user_id")
+  tokenHash         String   @unique @map("token_hash")
+  userAgent         String?  @map("user_agent")
+  ipAddress         String?  @map("ip_address")
+  idleExpiresAt     DateTime @map("idle_expires_at")
+  absoluteExpiresAt DateTime @map("absolute_expires_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  rotatedAt         DateTime @default(now()) @map("rotated_at")
+  revokedAt         DateTime? @map("revoked_at")
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id])
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@index([legalEntityId])
+  @@index([userId])
+  @@map("sessions")
+}
+
+model RolePermission {
+  id            String   @id @default(cuid())
+  legalEntityId String   @map("legal_entity_id")
+  role          UserRole
+  permission    String
+  allowed       Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id])
+
+  @@unique([legalEntityId, role, permission])
+  @@map("role_permissions")
+}
+
+model OperatorShift {
+  id               String      @id @default(cuid())
+  legalEntityId    String      @map("legal_entity_id")
+  branchId         String      @map("branch_id")
+  staffUserId      String      @map("staff_user_id")
+  status           ShiftStatus @default(OPEN)
+  openedAt         DateTime    @default(now()) @map("opened_at")
+  closedAt         DateTime?   @map("closed_at")
+  cashOpeningFloat Int?        @map("cash_opening_float")
+  cashCountedAmount Int?       @map("cash_counted_amount")
+  notes            String?
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  legalEntity   LegalEntity         @relation(fields: [legalEntityId], references: [id])
+  branch        Branch              @relation(fields: [branchId], references: [id])
+  staffUser     User                @relation(fields: [staffUserId], references: [id])
+  creditNotes   CreditNote[]
+  gstInvoices   GstInvoice[]
+  payments      Payment[]
+  refundPayments RefundPayment[]
+  shiftSummaries ShiftCloseSummary[]
+  stockMovements StockMovement[]
+  auditLogs      AuditLog[]
+  managerOverrides ManagerOverride[]
+  tabs          Tab[]
+  timedLines    TabTimedLine[]
+  retailLines   TabRetailLine[]
+  sessionEvents ServiceSessionEvent[]
+
+  @@index([legalEntityId, branchId, status])
+  @@index([staffUserId, status])
+  @@map("operator_shifts")
+}
+
+model ShiftCloseSummary {
+  id                 String   @id @default(cuid())
+  legalEntityId      String   @map("legal_entity_id")
+  branchId           String   @map("branch_id")
+  operatorShiftId    String   @map("operator_shift_id")
+  version            Int      @default(1)
+  grossSales         Int      @map("gross_sales")
+  discounts          Int
+  refunds            Int
+  voidedAmount       Int      @map("voided_amount")
+  netSales           Int      @map("net_sales")
+  gstCollected       Int      @map("gst_collected")
+  cashTotal          Int      @map("cash_total")
+  upiGooglePayTotal  Int      @map("upi_google_pay_total")
+  upiPhonePeTotal    Int      @map("upi_phonepe_total")
+  upiOtherTotal      Int      @map("upi_other_total")
+  cardRecordedTotal  Int      @map("card_recorded_total")
+  mixedTenderTotal   Int      @map("mixed_tender_total")
+  activeTabCount     Int      @map("active_tab_count")
+  warnings           Json
+  unusualActions     Json     @map("unusual_actions")
+  generatedAt        DateTime @default(now()) @map("generated_at")
+
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  legalEntity   LegalEntity   @relation(fields: [legalEntityId], references: [id])
+  operatorShift OperatorShift @relation(fields: [operatorShiftId], references: [id])
+
+  @@unique([operatorShiftId, version])
+  @@index([legalEntityId, branchId, generatedAt])
+  @@map("shift_close_summaries")
+}
+
+model Resource {
+  id            String         @id @default(cuid())
+  legalEntityId String         @map("legal_entity_id")
+  branchId      String         @map("branch_id")
+  name          String
+  kind          ResourceKind
+  status        ResourceStatus @default(AVAILABLE)
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  branch        Branch                @relation(fields: [branchId], references: [id])
+  legalEntity   LegalEntity           @relation(fields: [legalEntityId], references: [id])
+  sessionEvents ServiceSessionEvent[]
+  timedLines    TabTimedLine[]
+
+  @@unique([legalEntityId, branchId, name])
+  @@index([legalEntityId, branchId, status])
+  @@map("resources")
+}
+
+model PricingRule {
+  id                         String   @id @default(cuid())
+  legalEntityId              String   @map("legal_entity_id")
+  name                       String
+  ratePerMinute              Int      @map("rate_per_minute")
+  minimumBillableMinutes     Int      @default(1) @map("minimum_billable_minutes")
+  roundUpToMinutes           Int      @default(1) @map("round_up_to_minutes")
+  managerDiscountLimitPercent Int     @default(10) @map("manager_discount_limit_percent")
+  isActive                   Boolean  @default(true) @map("is_active")
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  legalEntity    LegalEntity      @relation(fields: [legalEntityId], references: [id])
+  serviceCatalog ServiceCatalog[]
+
+  @@unique([legalEntityId, name])
+  @@map("pricing_rules")
+}
+
+model TaxRate {
+  id            String      @id @default(cuid())
+  legalEntityId String      @map("legal_entity_id")
+  code          String
+  kind          TaxCodeKind
+  description   String
+  gstRate       Decimal     @map("gst_rate") @db.Decimal(5, 2)
+  effectiveFrom DateTime    @map("effective_from")
+  effectiveTo   DateTime?   @map("effective_to")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  legalEntity    LegalEntity      @relation(fields: [legalEntityId], references: [id])
+  productCatalog ProductCatalog[]
+  serviceCatalog ServiceCatalog[]
+
+  @@index([legalEntityId, code, effectiveFrom])
+  @@map("tax_rates")
+}
+
+model ServiceCatalog {
+  id            String   @id @default(cuid())
+  legalEntityId String   @map("legal_entity_id")
+  branchId      String?  @map("branch_id")
+  taxRateId     String   @map("tax_rate_id")
+  pricingRuleId String   @map("pricing_rule_id")
+  name          String
+  sacCode       String   @map("sac_code")
+  description   String
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  legalEntity   LegalEntity    @relation(fields: [legalEntityId], references: [id])
+  pricingRule   PricingRule    @relation(fields: [pricingRuleId], references: [id])
+  taxRate       TaxRate        @relation(fields: [taxRateId], references: [id])
+  timedLines    TabTimedLine[]
+
+  @@unique([legalEntityId, branchId, name])
+  @@index([legalEntityId])
+  @@map("service_catalog")
+}
+
+model ProductCatalog {
+  id               String   @id @default(cuid())
+  legalEntityId    String   @map("legal_entity_id")
+  branchId         String?  @map("branch_id")
+  taxRateId        String   @map("tax_rate_id")
+  sku              String
+  name             String
+  hsnCode          String   @map("hsn_code")
+  unitPrice        Int      @map("unit_price")
+  trackStock       Boolean  @default(true) @map("track_stock")
+  stockQuantity    Int      @default(0) @map("stock_quantity")
+  lowStockThreshold Int     @default(0) @map("low_stock_threshold")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  branch         Branch?         @relation(fields: [branchId], references: [id])
+  legalEntity    LegalEntity     @relation(fields: [legalEntityId], references: [id])
+  taxRate        TaxRate         @relation(fields: [taxRateId], references: [id])
+  retailLines    TabRetailLine[]
+  stockMovements StockMovement[]
+
+  @@unique([legalEntityId, branchId, sku])
+  @@index([legalEntityId])
+  @@map("product_catalog")
+}
+
+model Tab {
+  id              String    @id @default(cuid())
+  legalEntityId   String    @map("legal_entity_id")
+  branchId        String    @map("branch_id")
+  operatorShiftId String    @map("operator_shift_id")
+  createdByUserId String    @map("created_by_user_id")
+  customerLabel   String?   @map("customer_label")
+  customerName    String?   @map("customer_name")
+  customerPhone   String?   @map("customer_phone")
+  customerGstin   String?   @map("customer_gstin")
+  status          TabStatus @default(OPEN)
+  openedAt        DateTime  @default(now()) @map("opened_at")
+  closedAt        DateTime? @map("closed_at")
+  voidedAt        DateTime? @map("voided_at")
+  discountAmount  Int       @default(0) @map("discount_amount")
+  discountReason  String?   @map("discount_reason")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  branch        Branch          @relation(fields: [branchId], references: [id])
+  createdBy     User            @relation("TabCreatedBy", fields: [createdByUserId], references: [id])
+  legalEntity   LegalEntity     @relation(fields: [legalEntityId], references: [id])
+  operatorShift OperatorShift   @relation(fields: [operatorShiftId], references: [id])
+  creditNotes   CreditNote[]
+  gstInvoice    GstInvoice?
+  payments      Payment[]
+  retailLines   TabRetailLine[]
+  sessionEvents ServiceSessionEvent[]
+  timedLines    TabTimedLine[]
+
+  @@index([legalEntityId, branchId, status])
+  @@index([operatorShiftId])
+  @@map("tabs")
+}
+
+model TabTimedLine {
+  id                              String          @id @default(cuid())
+  legalEntityId                   String          @map("legal_entity_id")
+  branchId                        String          @map("branch_id")
+  tabId                           String          @map("tab_id")
+  operatorShiftId                 String          @map("operator_shift_id")
+  serviceCatalogId                String          @map("service_catalog_id")
+  resourceId                      String?         @map("resource_id")
+  status                          TimedLineStatus @default(RUNNING)
+  descriptionSnapshot             String          @map("description_snapshot")
+  sacCodeSnapshot                 String          @map("sac_code_snapshot")
+  gstRateSnapshot                 Decimal         @map("gst_rate_snapshot") @db.Decimal(5, 2)
+  ratePerMinuteSnapshot           Int             @map("rate_per_minute_snapshot")
+  minimumBillableMinutesSnapshot  Int             @map("minimum_billable_minutes_snapshot")
+  roundUpToMinutesSnapshot        Int             @map("round_up_to_minutes_snapshot")
+  priceOverrideAmount             Int?            @map("price_override_amount")
+  overrideReason                  String?         @map("override_reason")
+  createdAt                       DateTime        @default(now()) @map("created_at")
+  updatedAt                       DateTime        @updatedAt @map("updated_at")
+
+  legalEntity    LegalEntity           @relation(fields: [legalEntityId], references: [id])
+  branch         Branch                @relation(fields: [branchId], references: [id])
+  operatorShift  OperatorShift         @relation(fields: [operatorShiftId], references: [id])
+  resource       Resource?             @relation(fields: [resourceId], references: [id])
+  serviceCatalog ServiceCatalog        @relation(fields: [serviceCatalogId], references: [id])
+  sessionEvents  ServiceSessionEvent[]
+  tab            Tab                   @relation(fields: [tabId], references: [id])
+
+  @@index([legalEntityId, branchId, status])
+  @@index([tabId])
+  @@map("tab_timed_lines")
+}
+
+model ServiceSessionEvent {
+  id              String           @id @default(cuid())
+  legalEntityId   String           @map("legal_entity_id")
+  branchId        String           @map("branch_id")
+  tabId           String           @map("tab_id")
+  tabTimedLineId  String           @map("tab_timed_line_id")
+  resourceId      String?          @map("resource_id")
+  actorUserId     String           @map("actor_user_id")
+  operatorShiftId String           @map("operator_shift_id")
+  occurredAt      DateTime         @default(now()) @map("occurred_at")
+  eventType       SessionEventType @map("event_type")
+  metadata        Json
+  reason          String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  actorUser     User          @relation(fields: [actorUserId], references: [id])
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  legalEntity   LegalEntity   @relation(fields: [legalEntityId], references: [id])
+  operatorShift OperatorShift @relation(fields: [operatorShiftId], references: [id])
+  resource      Resource?     @relation(fields: [resourceId], references: [id])
+  tab           Tab           @relation(fields: [tabId], references: [id])
+  timedLine     TabTimedLine  @relation(fields: [tabTimedLineId], references: [id])
+
+  @@index([legalEntityId, branchId, occurredAt])
+  @@index([tabTimedLineId, occurredAt])
+  @@map("service_session_events")
+}
+
+model TabRetailLine {
+  id                  String   @id @default(cuid())
+  legalEntityId       String   @map("legal_entity_id")
+  branchId            String   @map("branch_id")
+  tabId               String   @map("tab_id")
+  operatorShiftId     String   @map("operator_shift_id")
+  productCatalogId    String   @map("product_catalog_id")
+  descriptionSnapshot String   @map("description_snapshot")
+  hsnCodeSnapshot     String   @map("hsn_code_snapshot")
+  gstRateSnapshot     Decimal  @map("gst_rate_snapshot") @db.Decimal(5, 2)
+  unitPriceSnapshot   Int      @map("unit_price_snapshot")
+  quantity            Int
+  discountAmount      Int      @default(0) @map("discount_amount")
+  voidedAt            DateTime? @map("voided_at")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  legalEntity    LegalEntity    @relation(fields: [legalEntityId], references: [id])
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  operatorShift  OperatorShift  @relation(fields: [operatorShiftId], references: [id])
+  productCatalog ProductCatalog @relation(fields: [productCatalogId], references: [id])
+  tab            Tab            @relation(fields: [tabId], references: [id])
+
+  @@index([legalEntityId, branchId])
+  @@index([tabId])
+  @@map("tab_retail_lines")
+}
+
+model Payment {
+  id              String     @id @default(cuid())
+  legalEntityId   String     @map("legal_entity_id")
+  branchId        String     @map("branch_id")
+  operatorShiftId String     @map("operator_shift_id")
+  tabId           String     @map("tab_id")
+  gstInvoiceId    String?    @map("gst_invoice_id")
+  tenderType      TenderType @map("tender_type")
+  amount          Int
+  reference       String?
+  receivedAt      DateTime   @default(now()) @map("received_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  gstInvoice    GstInvoice?   @relation(fields: [gstInvoiceId], references: [id])
+  legalEntity   LegalEntity   @relation(fields: [legalEntityId], references: [id])
+  operatorShift OperatorShift @relation(fields: [operatorShiftId], references: [id])
+  tab           Tab           @relation(fields: [tabId], references: [id])
+
+  @@index([legalEntityId, branchId, receivedAt])
+  @@index([operatorShiftId, tenderType])
+  @@map("payments")
+}
+
+model InvoiceSeries {
+  id            String   @id @default(cuid())
+  legalEntityId String   @map("legal_entity_id")
+  branchId      String   @map("branch_id")
+  financialYear String   @map("financial_year")
+  prefix        String
+  nextNumber    Int      @default(1) @map("next_number")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  branch      Branch       @relation(fields: [branchId], references: [id])
+  legalEntity LegalEntity  @relation(fields: [legalEntityId], references: [id])
+  invoices    GstInvoice[]
+  creditNotes CreditNote[]
+
+  @@unique([legalEntityId, branchId, financialYear, prefix])
+  @@index([legalEntityId, branchId, isActive])
+  @@map("invoice_series")
+}
+
+model GstInvoice {
+  id                   String        @id @default(cuid())
+  legalEntityId        String        @map("legal_entity_id")
+  branchId             String        @map("branch_id")
+  operatorShiftId      String        @map("operator_shift_id")
+  tabId                String        @unique @map("tab_id")
+  invoiceSeriesId      String        @map("invoice_series_id")
+  invoiceNumber        String        @unique @map("invoice_number")
+  financialYear        String        @map("financial_year")
+  status               InvoiceStatus @default(POSTED)
+  legalEntityName      String        @map("legal_entity_name")
+  legalEntityGstin     String        @map("legal_entity_gstin")
+  legalEntityAddress   String        @map("legal_entity_address")
+  branchName           String        @map("branch_name")
+  branchAddress        String        @map("branch_address")
+  customerName         String?       @map("customer_name")
+  customerPhone        String?       @map("customer_phone")
+  customerGstin        String?       @map("customer_gstin")
+  taxableValue         Int           @map("taxable_value")
+  cgstAmount           Int           @map("cgst_amount")
+  sgstAmount           Int           @map("sgst_amount")
+  igstAmount           Int           @map("igst_amount")
+  discountAmount       Int           @default(0) @map("discount_amount")
+  totalAmount          Int           @map("total_amount")
+  postedAt             DateTime      @default(now()) @map("posted_at")
+  voidedAt             DateTime?     @map("voided_at")
+  createdAt            DateTime      @default(now()) @map("created_at")
+
+  branch        Branch          @relation(fields: [branchId], references: [id])
+  creditNotes   CreditNote[]
+  invoiceSeries InvoiceSeries   @relation(fields: [invoiceSeriesId], references: [id])
+  legalEntity   LegalEntity     @relation(fields: [legalEntityId], references: [id])
+  lines         GstInvoiceLine[]
+  operatorShift OperatorShift   @relation(fields: [operatorShiftId], references: [id])
+  payments      Payment[]
+  tab           Tab             @relation(fields: [tabId], references: [id])
+
+  @@index([legalEntityId, branchId, postedAt])
+  @@map("gst_invoices")
+}
+
+model GstInvoiceLine {
+  id                    String   @id @default(cuid())
+  legalEntityId         String   @map("legal_entity_id")
+  branchId              String   @map("branch_id")
+  gstInvoiceId          String   @map("gst_invoice_id")
+  lineKind              String   @map("line_kind")
+  sourceLineId          String?  @map("source_line_id")
+  description           String
+  hsnSac                String   @map("hsn_sac")
+  gstRate               Decimal  @map("gst_rate") @db.Decimal(5, 2)
+  taxableValue          Int      @map("taxable_value")
+  cgstAmount            Int      @map("cgst_amount")
+  sgstAmount            Int      @map("sgst_amount")
+  igstAmount            Int      @map("igst_amount")
+  totalAmount           Int      @map("total_amount")
+  unitPrice             Int      @map("unit_price")
+  quantity              Int?
+  billableMinutes       Int?     @map("billable_minutes")
+  pricingRuleUsed       String   @map("pricing_rule_used")
+  invoiceSeriesSnapshot String   @map("invoice_series_snapshot")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  branch      Branch      @relation(fields: [branchId], references: [id])
+  gstInvoice  GstInvoice  @relation(fields: [gstInvoiceId], references: [id])
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id])
+
+  @@index([legalEntityId, branchId])
+  @@index([gstInvoiceId])
+  @@map("gst_invoice_lines")
+}
+
+model CreditNote {
+  id                String           @id @default(cuid())
+  legalEntityId     String           @map("legal_entity_id")
+  branchId          String           @map("branch_id")
+  operatorShiftId   String           @map("operator_shift_id")
+  tabId             String           @map("tab_id")
+  gstInvoiceId      String           @map("gst_invoice_id")
+  invoiceSeriesId   String           @map("invoice_series_id")
+  creditNoteNumber  String           @unique @map("credit_note_number")
+  reason            String
+  taxableValue      Int              @map("taxable_value")
+  cgstAmount        Int              @map("cgst_amount")
+  sgstAmount        Int              @map("sgst_amount")
+  igstAmount        Int              @map("igst_amount")
+  totalAmount       Int              @map("total_amount")
+  status            CreditNoteStatus @default(POSTED)
+  postedAt          DateTime         @default(now()) @map("posted_at")
+  voidedAt          DateTime?        @map("voided_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  branch        Branch           @relation(fields: [branchId], references: [id])
+  gstInvoice    GstInvoice       @relation(fields: [gstInvoiceId], references: [id])
+  invoiceSeries InvoiceSeries    @relation(fields: [invoiceSeriesId], references: [id])
+  legalEntity   LegalEntity      @relation(fields: [legalEntityId], references: [id])
+  lines         CreditNoteLine[]
+  operatorShift OperatorShift    @relation(fields: [operatorShiftId], references: [id])
+  refundPayments RefundPayment[]
+  tab           Tab              @relation(fields: [tabId], references: [id])
+
+  @@index([legalEntityId, branchId, postedAt])
+  @@map("credit_notes")
+}
+
+model CreditNoteLine {
+  id              String   @id @default(cuid())
+  legalEntityId   String   @map("legal_entity_id")
+  branchId        String   @map("branch_id")
+  creditNoteId    String   @map("credit_note_id")
+  originalLineId  String?  @map("original_line_id")
+  description     String
+  hsnSac          String   @map("hsn_sac")
+  gstRate         Decimal  @map("gst_rate") @db.Decimal(5, 2)
+  taxableValue    Int      @map("taxable_value")
+  cgstAmount      Int      @map("cgst_amount")
+  sgstAmount      Int      @map("sgst_amount")
+  igstAmount      Int      @map("igst_amount")
+  totalAmount     Int      @map("total_amount")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  branch      Branch      @relation(fields: [branchId], references: [id])
+  creditNote  CreditNote  @relation(fields: [creditNoteId], references: [id])
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id])
+
+  @@index([legalEntityId, branchId])
+  @@map("credit_note_lines")
+}
+
+model RefundPayment {
+  id              String       @id @default(cuid())
+  legalEntityId   String       @map("legal_entity_id")
+  branchId        String       @map("branch_id")
+  operatorShiftId String       @map("operator_shift_id")
+  creditNoteId    String       @map("credit_note_id")
+  tenderType      TenderType   @map("tender_type")
+  amount          Int
+  reference       String?
+  status          RefundStatus @default(POSTED)
+  refundedAt      DateTime     @default(now()) @map("refunded_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  creditNote    CreditNote    @relation(fields: [creditNoteId], references: [id])
+  legalEntity   LegalEntity   @relation(fields: [legalEntityId], references: [id])
+  operatorShift OperatorShift @relation(fields: [operatorShiftId], references: [id])
+
+  @@index([legalEntityId, branchId, refundedAt])
+  @@index([operatorShiftId])
+  @@map("refund_payments")
+}
+
+model ManagerOverride {
+  id            String          @id @default(cuid())
+  legalEntityId String          @map("legal_entity_id")
+  branchId      String          @map("branch_id")
+  operatorShiftId String?       @map("operator_shift_id")
+  action        SensitiveAction
+  status        OverrideStatus
+  managerUserId String          @map("manager_user_id")
+  targetType    String          @map("target_type")
+  targetId      String          @map("target_id")
+  reason        String
+  metadata      Json
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  branch      Branch      @relation(fields: [branchId], references: [id])
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id])
+  manager     User        @relation("ManagerOverrideActor", fields: [managerUserId], references: [id])
+  operatorShift OperatorShift? @relation(fields: [operatorShiftId], references: [id])
+
+  @@index([legalEntityId, branchId, createdAt])
+  @@map("manager_overrides")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  legalEntityId String   @map("legal_entity_id")
+  branchId      String?  @map("branch_id")
+  operatorShiftId String? @map("operator_shift_id")
+  actorUserId   String?  @map("actor_user_id")
+  action        String
+  targetType    String   @map("target_type")
+  targetId      String   @map("target_id")
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  beforeJson    Json?    @map("before_json")
+  afterJson     Json?    @map("after_json")
+  reason        String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  actor      User?       @relation(fields: [actorUserId], references: [id])
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id])
+  operatorShift OperatorShift? @relation(fields: [operatorShiftId], references: [id])
+
+  @@index([legalEntityId, branchId, createdAt])
+  @@index([operatorShiftId])
+  @@map("audit_logs")
+}
+
+model StockMovement {
+  id               String            @id @default(cuid())
+  legalEntityId    String            @map("legal_entity_id")
+  branchId         String            @map("branch_id")
+  operatorShiftId  String?           @map("operator_shift_id")
+  productCatalogId String            @map("product_catalog_id")
+  movementType     StockMovementType @map("movement_type")
+  quantityDelta    Int               @map("quantity_delta")
+  reason           String?
+  createdAt        DateTime          @default(now()) @map("created_at")
+
+  branch         Branch          @relation(fields: [branchId], references: [id])
+  legalEntity    LegalEntity     @relation(fields: [legalEntityId], references: [id])
+  operatorShift  OperatorShift?  @relation(fields: [operatorShiftId], references: [id])
+  productCatalog ProductCatalog  @relation(fields: [productCatalogId], references: [id])
+
+  @@index([legalEntityId, branchId, createdAt])
+  @@map("stock_movements")
+}
+
+model JournalAccount {
+  id            String   @id @default(cuid())
+  legalEntityId String   @map("legal_entity_id")
+  code          String
+  name          String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  legalEntity LegalEntity  @relation(fields: [legalEntityId], references: [id])
+  lines       JournalLine[]
+
+  @@unique([legalEntityId, code])
+  @@map("journal_accounts")
+}
+
+model JournalEntry {
+  id            String             @id @default(cuid())
+  legalEntityId String             @map("legal_entity_id")
+  branchId      String             @map("branch_id")
+  source        JournalEntrySource
+  sourceId      String             @map("source_id")
+  postedAt      DateTime           @default(now()) @map("posted_at")
+  memo          String
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  legalEntity LegalEntity   @relation(fields: [legalEntityId], references: [id])
+  lines       JournalLine[]
+
+  @@index([legalEntityId, branchId, postedAt])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id             String          @id @default(cuid())
+  legalEntityId  String          @map("legal_entity_id")
+  journalEntryId String          @map("journal_entry_id")
+  accountId      String          @map("account_id")
+  side           JournalLineSide
+  amount         Int
+  memo           String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  account      JournalAccount @relation(fields: [accountId], references: [id])
+  journalEntry JournalEntry   @relation(fields: [journalEntryId], references: [id])
+  legalEntity  LegalEntity    @relation(fields: [legalEntityId], references: [id])
+
+  @@index([legalEntityId, journalEntryId])
+  @@map("journal_lines")
+}

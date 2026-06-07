@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gamex
+      POSTGRES_PASSWORD: gamex_dev_password
+      POSTGRES_DB: gamex_pos
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gamex -d gamex_pos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://gamex:gamex_dev_password@postgres:5432/gamex_pos?schema=public
+      MANAGER_DISCOUNT_LIMIT_PERCENT: "10"
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres-data:

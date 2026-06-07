@@ -57,7 +57,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    if (tab.timedLines.length === 0 && tab.retailLines.length === 0) {
+    const billableTimedLines = tab.timedLines.filter(
+      (line) => line.status !== "VOIDED",
+    );
+    const billableRetailLines = tab.retailLines.filter((line) => !line.voidedAt);
+
+    if (billableTimedLines.length === 0 && billableRetailLines.length === 0) {
       throw new AppError(409, "EMPTY_TAB", "Cannot checkout an empty tab.");
     }
 
@@ -81,7 +86,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const draft = buildInvoiceDraft({
-      timedLines: tab.timedLines.map((line) => ({
+      timedLines: billableTimedLines.map((line) => ({
         id: line.id,
         description: line.descriptionSnapshot,
         hsnSac: line.sacCodeSnapshot,
@@ -110,7 +115,7 @@ export async function POST(request: Request): Promise<NextResponse> {
               : undefined,
         })),
       })),
-      retailLines: tab.retailLines.map((line) => ({
+      retailLines: billableRetailLines.map((line) => ({
         id: line.id,
         description: line.descriptionSnapshot,
         hsnSac: line.hsnCodeSnapshot,
@@ -225,7 +230,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         })),
       });
 
-      for (const retailLine of tab.retailLines) {
+      for (const retailLine of billableRetailLines) {
         if (!retailLine.productCatalog.trackStock) {
           continue;
         }
@@ -246,7 +251,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         });
       }
 
-      for (const timedLine of tab.timedLines) {
+      for (const timedLine of billableTimedLines) {
         await tx.serviceSessionEvent.create({
           data: {
             legalEntityId: auth.legalEntityId,

@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  AlertTriangle,
+  CheckCircle2,
   CirclePause,
   CirclePlay,
   CreditCard,
@@ -74,6 +76,25 @@ type RetailLine = {
   quantity: number;
   unitPriceSnapshot: number;
 };
+type InvoiceLine = {
+  id?: string;
+  sourceLineId: string | null;
+  lineKind: "SERVICE" | "RETAIL" | string;
+  description: string;
+  hsnSac: string;
+  gstRatePercent?: number;
+  gstRate?: number | string;
+  taxableValue: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  totalAmount: number;
+  unitPrice: number;
+  quantity?: number | null;
+  billableMinutes?: number | null;
+  pricingRuleUsed: string;
+  invoiceSeriesSnapshot: string;
+};
 type TenderType =
   | "CASH"
   | "UPI_GOOGLE_PAY"
@@ -81,6 +102,7 @@ type TenderType =
   | "UPI_OTHER"
   | "CARD_RECORDED";
 type CheckoutQuote = {
+  lines: InvoiceLine[];
   taxableValue: number;
   cgstAmount: number;
   sgstAmount: number;
@@ -89,6 +111,35 @@ type CheckoutQuote = {
   totalAmount: number;
   hasActiveTimedLines: boolean;
   serverNow: string;
+};
+type PostedInvoice = {
+  invoiceNumber: string;
+  taxableValue: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  postedAt: string;
+  lines: InvoiceLine[];
+};
+type ShiftCloseSummary = {
+  grossSales: number;
+  discounts: number;
+  refunds: number;
+  voidedAmount: number;
+  netSales: number;
+  gstCollected: number;
+  cashTotal: number;
+  upiGooglePayTotal: number;
+  upiPhonePeTotal: number;
+  upiOtherTotal: number;
+  cardRecordedTotal: number;
+  mixedTenderTotal: number;
+  activeTabCount: number;
+  warnings: unknown;
+  unusualActions: unknown;
+  generatedAt: string;
 };
 
 export function PosShell() {
@@ -105,9 +156,14 @@ export function PosShell() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [customerLabel, setCustomerLabel] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [lastPostedInvoice, setLastPostedInvoice] =
+    useState<PostedInvoice | null>(null);
+  const [lastShiftSummary, setLastShiftSummary] =
+    useState<ShiftCloseSummary | null>(null);
+  const [closeShiftArmed, setCloseShiftArmed] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  async function refresh() {
+  async function refresh(options?: { branchId?: string; preferredTabId?: string }) {
     setLoading(true);
     const bootstrapResponse = await fetch("/api/pos/bootstrap", {
       cache: "no-store",
@@ -119,6 +175,7 @@ export function PosShell() {
     const bootstrapData = (await bootstrapResponse.json()) as Bootstrap;
     setBootstrap(bootstrapData);
     const branchId =
+      options?.branchId ||
       selectedBranchId ||
       bootstrapData.activeShift?.branchId ||
       bootstrapData.branches[0]?.id ||
@@ -132,8 +189,18 @@ export function PosShell() {
       { cache: "no-store" },
     );
     const tabsData = (await tabsResponse.json()) as { tabs: Tab[] };
-    setTabs(tabsData.tabs ?? []);
-    setSelectedTabId((current) => current || tabsData.tabs?.[0]?.id || "");
+    const nextTabs = tabsData.tabs ?? [];
+    const preferredTabId = options?.preferredTabId ?? selectedTabId;
+    const nextSelectedTabId =
+      nextTabs.find((tab) => tab.id === preferredTabId)?.id ??
+      nextTabs[0]?.id ??
+      "";
+    setTabs(nextTabs);
+    setSelectedTabId(nextSelectedTabId);
+    if (!nextSelectedTabId) {
+      setQuote(null);
+      setCheckoutAmount("");
+    }
     setLoading(false);
   }
 
@@ -179,25 +246,42 @@ export function PosShell() {
   }, [selectedTabId, tabs]);
 
   const selectedTab = tabs.find((tab) => tab.id === selectedTabId) ?? null;
+  const currentBranchId =
+    selectedBranchId ||
+    bootstrap?.activeShift?.branchId ||
+    bootstrap?.branches[0]?.id ||
+    "";
   const branchResources = useMemo(
     () =>
       bootstrap?.resources.filter(
-        (resource) => resource.branchId === selectedBranchId,
+        (resource) => resource.branchId === currentBranchId,
       ) ?? [],
-    [bootstrap?.resources, selectedBranchId],
+    [bootstrap?.resources, currentBranchId],
   );
 
-  async function postJson(path: string, body: Record<string, unknown>) {
+  async function postJson<TPayload>(
+    path: string,
+    body: Record<string, unknown>,
+    options?: { offlineDraft?: boolean; successMessage?: string },
+  ): Promise<TPayload | null> {
+    setLastPostedInvoice(null);
+    setLastShiftSummary(null);
+
     if (!navigator.onLine) {
-      await saveDraftAction({
-        id: crypto.randomUUID(),
-        actionType: "TAB_DRAFT",
-        payload: { path, body },
-        createdAt: new Date().toISOString(),
-        status: "DRAFT_NOT_POSTED",
-      });
-      setMessage("Saved as Draft / Not Posted. Reconnect before posting.");
-      return;
+      if (options?.offlineDraft) {
+        await saveDraftAction({
+          id: crypto.randomUUID(),
+          actionType: "TAB_DRAFT",
+          payload: { path, body },
+          createdAt: new Date().toISOString(),
+          status: "DRAFT_NOT_POSTED",
+        });
+        setMessage("Saved as Draft / Not Posted. Reconnect before posting.");
+        return null;
+      }
+
+      setMessage("You are offline. Reconnect before posting this action.");
+      return null;
     }
 
     const response = await fetch(path, {
@@ -207,21 +291,26 @@ export function PosShell() {
     });
     const payload = (await response.json()) as {
       error?: { message?: string };
-    };
+    } & TPayload;
     if (!response.ok) {
       setMessage(payload.error?.message ?? "Action failed.");
-      return;
+      return null;
     }
-    setMessage("Posted.");
+    setMessage(options?.successMessage ?? "Posted.");
     await refresh();
+    return payload;
   }
 
   async function openShift() {
-    if (!selectedBranchId) {
+    if (!currentBranchId) {
       setMessage("Select a branch first.");
       return;
     }
-    await postJson("/api/shifts/open", { branchId: selectedBranchId });
+    setSelectedBranchId(currentBranchId);
+    setCloseShiftArmed(false);
+    await postJson("/api/shifts/open", { branchId: currentBranchId }, {
+      successMessage: "Shift opened.",
+    });
   }
 
   async function closeShift() {
@@ -229,17 +318,38 @@ export function PosShell() {
       setMessage("No active shift is open.");
       return;
     }
-    await postJson("/api/shifts/close", {
-      operatorShiftId: bootstrap.activeShift.id,
-    });
+    if (tabs.length > 0 && !closeShiftArmed) {
+      setCloseShiftArmed(true);
+      setMessage(
+        `${tabs.length} open tab${tabs.length === 1 ? "" : "s"} still need attention. Close shift again to confirm.`,
+      );
+      return;
+    }
+    const payload = await postJson<{ summary: ShiftCloseSummary }>(
+      "/api/shifts/close",
+      { operatorShiftId: bootstrap.activeShift.id },
+      { successMessage: "Shift closed." },
+    );
+    if (payload?.summary) {
+      setLastShiftSummary(payload.summary);
+      setCloseShiftArmed(false);
+    }
   }
 
   async function createTab() {
-    await postJson("/api/tabs", {
-      branchId: selectedBranchId,
-      customerLabel: customerLabel || undefined,
-    });
+    const payload = await postJson<{ tab: Tab }>(
+      "/api/tabs",
+      {
+        branchId: currentBranchId,
+        customerLabel: customerLabel || undefined,
+      },
+      { offlineDraft: true, successMessage: "Tab created." },
+    );
     setCustomerLabel("");
+    if (payload?.tab) {
+      setSelectedTabId(payload.tab.id);
+      await refresh({ branchId: currentBranchId, preferredTabId: payload.tab.id });
+    }
   }
 
   async function startSession(resourceId: string) {
@@ -247,11 +357,15 @@ export function PosShell() {
       setMessage("Select a tab and service first.");
       return;
     }
-    await postJson("/api/service-sessions/start", {
-      tabId: selectedTabId,
-      serviceCatalogId: selectedServiceId,
-      resourceId,
-    });
+    await postJson(
+      "/api/service-sessions/start",
+      {
+        tabId: selectedTabId,
+        serviceCatalogId: selectedServiceId,
+        resourceId,
+      },
+      { successMessage: "Timed session started." },
+    );
   }
 
   async function addRetailLine() {
@@ -259,26 +373,63 @@ export function PosShell() {
       setMessage("Select a tab and product first.");
       return;
     }
-    await postJson(`/api/tabs/${selectedTabId}/retail-lines`, {
-      tabId: selectedTabId,
-      productCatalogId: selectedProductId,
-      quantity: 1,
-    });
+    await postJson(
+      `/api/tabs/${selectedTabId}/retail-lines`,
+      {
+        tabId: selectedTabId,
+        productCatalogId: selectedProductId,
+        quantity: 1,
+      },
+      { offlineDraft: true, successMessage: "Retail item added." },
+    );
   }
 
   async function checkout() {
+    if (!selectedTabId) {
+      setMessage("Select a tab before checkout.");
+      return;
+    }
+    if (quote?.hasActiveTimedLines) {
+      setMessage("Stop all timed sessions before final checkout.");
+      return;
+    }
     const fallbackAmount = quote ? (quote.totalAmount / 100).toFixed(2) : "";
     const amount = Math.round(Number(checkoutAmount || fallbackAmount) * 100);
     if (!Number.isInteger(amount) || amount <= 0) {
       setMessage("Enter the received amount before checkout.");
       return;
     }
-    await postJson("/api/checkout", {
-      tabId: selectedTabId,
-      payments: [{ tenderType: selectedTender, amount }],
-    });
-    setCheckoutAmount("");
+    const payload = await postJson<{ invoice: PostedInvoice }>(
+      "/api/checkout",
+      {
+        tabId: selectedTabId,
+        payments: [{ tenderType: selectedTender, amount }],
+      },
+      { successMessage: "Checkout posted." },
+    );
+    if (payload?.invoice) {
+      setLastPostedInvoice(payload.invoice);
+      setCheckoutAmount("");
+      setQuote(null);
+    }
   }
+
+  function handleBranchChange(branchId: string) {
+    setSelectedBranchId(branchId);
+    setSelectedTabId("");
+    setCheckoutAmount("");
+    setQuote(null);
+    setCloseShiftArmed(false);
+    setMessage(null);
+    void refresh({ branchId, preferredTabId: "" });
+  }
+
+  const shiftWarnings = lastShiftSummary
+    ? toStringArray(lastShiftSummary.warnings)
+    : [];
+  const unusualActions = lastShiftSummary
+    ? toStringArray(lastShiftSummary.unusualActions)
+    : [];
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
@@ -286,15 +437,15 @@ export function PosShell() {
         <div>
           <h1 className="text-xl font-semibold tracking-normal">Counter POS</h1>
           <p className="text-sm text-zinc-600">
-            {bootstrap?.user.name ?? "Operator"} · {bootstrap?.user.role ?? ""}
+            {bootstrap?.user.name ?? "Operator"} - {bootstrap?.user.role ?? ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <OfflineStatus />
           <select
             className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-            value={selectedBranchId}
-            onChange={(event) => setSelectedBranchId(event.target.value)}
+            value={currentBranchId}
+            onChange={(event) => handleBranchChange(event.target.value)}
           >
             {bootstrap?.branches.map((branch) => (
               <option key={branch.id} value={branch.id}>
@@ -305,13 +456,16 @@ export function PosShell() {
           {bootstrap?.activeShift ? (
             <>
               <Badge tone="success">Shift open</Badge>
-              <Button variant="secondary" onClick={closeShift}>
+              <Button
+                variant={closeShiftArmed ? "danger" : "secondary"}
+                onClick={closeShift}
+              >
                 <LogOut className="h-4 w-4" />
-                Close shift
+                {closeShiftArmed ? "Close anyway" : "Close shift"}
               </Button>
             </>
           ) : (
-            <Button onClick={openShift}>
+            <Button onClick={openShift} disabled={!currentBranchId}>
               <CirclePlay className="h-4 w-4" />
               Open shift
             </Button>
@@ -323,6 +477,85 @@ export function PosShell() {
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           {message}
         </div>
+      ) : null}
+
+      {lastPostedInvoice ? (
+        <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5" />
+              <div>
+                <h2 className="text-base font-semibold">Invoice posted</h2>
+                <p className="text-sm">
+                  {lastPostedInvoice.invoiceNumber} - {formatPaise(lastPostedInvoice.totalAmount)}
+                </p>
+              </div>
+            </div>
+            <Badge tone="success">Server confirmed</Badge>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm">
+            {lastPostedInvoice.lines.map((line, index) => (
+              <div
+                key={line.id ?? line.sourceLineId ?? `${line.description}-${index}`}
+                className="flex items-center justify-between gap-3 rounded-md bg-white/70 px-3 py-2"
+              >
+                <span>
+                  {line.description}
+                  <span className="ml-2 text-xs text-emerald-800">
+                    {invoiceLineMeta(line)}
+                  </span>
+                </span>
+                <span className="font-semibold">{formatPaise(line.totalAmount)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {lastShiftSummary ? (
+        <section className="rounded-lg border border-emerald-200 bg-white p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+              <div>
+                <h2 className="text-base font-semibold">Shift summary</h2>
+                <p className="text-sm text-zinc-600">
+                  Net sales {formatPaise(lastShiftSummary.netSales)} - GST{" "}
+                  {formatPaise(lastShiftSummary.gstCollected)}
+                </p>
+              </div>
+            </div>
+            {lastShiftSummary.activeTabCount > 0 ? (
+              <Badge tone="warning">
+                {lastShiftSummary.activeTabCount} open tab
+                {lastShiftSummary.activeTabCount === 1 ? "" : "s"}
+              </Badge>
+            ) : (
+              <Badge tone="success">No open tabs</Badge>
+            )}
+          </div>
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryMetric label="Gross sales" value={lastShiftSummary.grossSales} />
+            <SummaryMetric label="Discounts" value={lastShiftSummary.discounts} />
+            <SummaryMetric label="Refunds" value={lastShiftSummary.refunds} />
+            <SummaryMetric label="Voids" value={lastShiftSummary.voidedAmount} />
+            <SummaryMetric label="Cash" value={lastShiftSummary.cashTotal} />
+            <SummaryMetric label="Google Pay" value={lastShiftSummary.upiGooglePayTotal} />
+            <SummaryMetric label="PhonePe" value={lastShiftSummary.upiPhonePeTotal} />
+            <SummaryMetric label="Card" value={lastShiftSummary.cardRecordedTotal} />
+          </div>
+          {shiftWarnings.length > 0 || unusualActions.length > 0 ? (
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              <div className="mb-1 flex items-center gap-2 font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                Review before handover
+              </div>
+              {[...shiftWarnings, ...unusualActions].map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -337,7 +570,7 @@ export function PosShell() {
               >
                 {bootstrap?.services.map((service) => (
                   <option key={service.id} value={service.id}>
-                    {service.name} · {formatPaise(service.pricingRule.ratePerMinute)}/min
+                    {service.name} - {formatPaise(service.pricingRule.ratePerMinute)}/min
                   </option>
                 ))}
               </select>
@@ -385,7 +618,10 @@ export function PosShell() {
                   value={customerLabel}
                   onChange={(event) => setCustomerLabel(event.target.value)}
                 />
-                <Button onClick={createTab} disabled={!bootstrap?.activeShift}>
+                <Button
+                  onClick={createTab}
+                  disabled={!bootstrap?.activeShift || !currentBranchId}
+                >
                   <Plus className="h-4 w-4" />
                   New tab
                 </Button>
@@ -409,7 +645,7 @@ export function PosShell() {
                     <Badge>{tab.status}</Badge>
                   </div>
                   <p className="mt-1 text-xs text-zinc-600">
-                    {tab.timedLines.length} timed · {tab.retailLines.length} retail
+                    {tab.timedLines.length} timed - {tab.retailLines.length} retail
                   </p>
                 </button>
               ))}
@@ -437,41 +673,50 @@ export function PosShell() {
                             {line.descriptionSnapshot}
                           </p>
                           <p className="text-xs text-zinc-600">
-                            {line.resource?.name ?? "No resource"} · {line.status}
+                            {line.resource?.name ?? "No resource"} - {line.status}
                           </p>
                         </div>
                         <div className="flex gap-1">
                           <Button
+                            aria-label="Pause timed session"
                             className="h-9 px-2"
                             variant="secondary"
                             onClick={() =>
-                              postJson("/api/service-sessions/pause", {
-                                tabTimedLineId: line.id,
-                              })
+                              postJson(
+                                "/api/service-sessions/pause",
+                                { tabTimedLineId: line.id },
+                                { successMessage: "Timed session paused." },
+                              )
                             }
                             disabled={line.status !== "RUNNING"}
                           >
                             <CirclePause className="h-4 w-4" />
                           </Button>
                           <Button
+                            aria-label="Resume timed session"
                             className="h-9 px-2"
                             variant="secondary"
                             onClick={() =>
-                              postJson("/api/service-sessions/resume", {
-                                tabTimedLineId: line.id,
-                              })
+                              postJson(
+                                "/api/service-sessions/resume",
+                                { tabTimedLineId: line.id },
+                                { successMessage: "Timed session resumed." },
+                              )
                             }
                             disabled={line.status !== "PAUSED"}
                           >
                             <CirclePlay className="h-4 w-4" />
                           </Button>
                           <Button
+                            aria-label="Stop timed session"
                             className="h-9 px-2"
                             variant="secondary"
                             onClick={() =>
-                              postJson("/api/service-sessions/stop", {
-                                tabTimedLineId: line.id,
-                              })
+                              postJson(
+                                "/api/service-sessions/stop",
+                                { tabTimedLineId: line.id },
+                                { successMessage: "Timed session stopped." },
+                              )
                             }
                             disabled={
                               line.status !== "RUNNING" && line.status !== "PAUSED"
@@ -494,17 +739,21 @@ export function PosShell() {
                     >
                       {bootstrap?.products.map((product) => (
                         <option key={product.id} value={product.id}>
-                          {product.name} · {formatPaise(product.unitPrice)}
+                          {product.name} - {formatPaise(product.unitPrice)}
                         </option>
                       ))}
                     </select>
-                    <Button variant="secondary" onClick={addRetailLine}>
+                    <Button
+                      aria-label="Add retail item"
+                      variant="secondary"
+                      onClick={addRetailLine}
+                    >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
                   {selectedTab.retailLines.map((line) => (
                     <p key={line.id} className="text-sm text-zinc-700">
-                      {line.quantity} × {line.descriptionSnapshot} ·{" "}
+                      {line.quantity} x {line.descriptionSnapshot} -{" "}
                       {formatPaise(line.unitPriceSnapshot * line.quantity)}
                     </p>
                   ))}
@@ -525,11 +774,35 @@ export function PosShell() {
                       </span>
                     </div>
                     {quote ? (
-                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-zinc-600">
-                        <span>CGST {formatPaise(quote.cgstAmount)}</span>
-                        <span>SGST {formatPaise(quote.sgstAmount)}</span>
-                        <span>IGST {formatPaise(quote.igstAmount)}</span>
-                      </div>
+                      <>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-zinc-600">
+                          <span>CGST {formatPaise(quote.cgstAmount)}</span>
+                          <span>SGST {formatPaise(quote.sgstAmount)}</span>
+                          <span>IGST {formatPaise(quote.igstAmount)}</span>
+                        </div>
+                        <div className="mt-3 grid gap-1.5">
+                          {quote.lines.map((line, index) => (
+                            <div
+                              key={
+                                line.id ??
+                                line.sourceLineId ??
+                                `${line.description}-${index}`
+                              }
+                              className="flex items-center justify-between gap-3 text-sm"
+                            >
+                              <span className="min-w-0 truncate">
+                                {line.description}
+                                <span className="ml-2 text-xs text-zinc-500">
+                                  {invoiceLineMeta(line)}
+                                </span>
+                              </span>
+                              <span className="font-medium">
+                                {formatPaise(line.totalAmount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
                     ) : null}
                     {quote?.hasActiveTimedLines ? (
                       <p className="mt-2 text-xs font-medium text-amber-900">
@@ -567,7 +840,12 @@ export function PosShell() {
                   >
                     Use total
                   </Button>
-                  <Button onClick={checkout}>
+                  <Button
+                    onClick={checkout}
+                    disabled={
+                      !quote || quote.totalAmount <= 0 || quote.hasActiveTimedLines
+                    }
+                  >
                     <CreditCard className="h-4 w-4" />
                     Post checkout
                   </Button>
@@ -598,10 +876,14 @@ export function PosShell() {
                         (line) => line.status === "RUNNING",
                       );
                       if (runningLine) {
-                        postJson("/api/service-sessions/transfer", {
-                          tabTimedLineId: runningLine.id,
-                          toResourceId: resource.id,
-                        });
+                        postJson(
+                          "/api/service-sessions/transfer",
+                          {
+                            tabTimedLineId: runningLine.id,
+                            toResourceId: resource.id,
+                          },
+                          { successMessage: "Timed session transferred." },
+                        );
                       }
                     }}
                   >
@@ -615,4 +897,28 @@ export function PosShell() {
       </section>
     </main>
   );
+}
+
+function SummaryMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+      <p className="text-xs text-zinc-600">{label}</p>
+      <p className="font-semibold text-zinc-950">{formatPaise(value)}</p>
+    </div>
+  );
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function invoiceLineMeta(line: InvoiceLine): string {
+  if (line.lineKind === "SERVICE") {
+    return `${line.billableMinutes ?? 0} min`;
+  }
+
+  return `${line.quantity ?? 1} x ${formatPaise(line.unitPrice)}`;
 }

@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { PwaBoot } from "@/components/pwa/pwa-boot";
+import { getAuthContext } from "@/lib/auth/session";
+import { visibleNavItems } from "@/lib/navigation";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,11 +29,14 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
+  const auth = await getAuthContext();
+  const navItems = visibleNavItems(auth?.role);
+
   return (
     <html
       lang="en"
@@ -45,15 +50,15 @@ export default function RootLayout({
               GameX POS
             </Link>
             <nav className="flex items-center gap-1 text-sm">
-              <Link className="rounded-md px-3 py-2 hover:bg-zinc-100" href="/pos">
-                POS
-              </Link>
-              <Link className="rounded-md px-3 py-2 hover:bg-zinc-100" href="/reports">
-                Reports
-              </Link>
-              <Link className="rounded-md px-3 py-2 hover:bg-zinc-100" href="/admin">
-                Admin
-              </Link>
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  className="rounded-md px-3 py-2 hover:bg-zinc-100"
+                  href={item.href}
+                >
+                  {item.label}
+                </Link>
+              ))}
             </nav>
           </div>
         </header>

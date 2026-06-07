@@ -2,17 +2,25 @@
 
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
+  CircleDot,
   CirclePause,
   CirclePlay,
+  Clock,
   CreditCard,
   ExternalLink,
+  Gamepad2,
+  Lock,
   LogOut,
+  Monitor,
   MoveRight,
   Plus,
-  ReceiptText,
+  ShoppingBasket,
   Square,
   Trash2,
+  UserRound,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -73,6 +81,18 @@ type TimedLine = {
   descriptionSnapshot: string;
   resourceId: string | null;
   resource?: { name: string } | null;
+  sessionEvents?: SessionEvent[];
+};
+type SessionEvent = {
+  eventType:
+    | "STARTED"
+    | "PAUSED"
+    | "RESUMED"
+    | "STOPPED"
+    | "TRANSFERRED"
+    | "CLOSED"
+    | "MANUAL_ADJUSTED";
+  occurredAt: string;
 };
 type RetailLine = {
   id: string;
@@ -292,6 +312,7 @@ export function PosShell() {
   }, [refreshQuote, selectedTabId, tabs]);
 
   const selectedTab = tabs.find((tab) => tab.id === selectedTabId) ?? null;
+  const isStaff = bootstrap?.user.role === "STAFF";
   const currentBranchId =
     selectedBranchId ||
     bootstrap?.activeShift?.branchId ||
@@ -299,6 +320,8 @@ export function PosShell() {
     "";
   const timedLines = selectedTab?.timedLines ?? [];
   const activeTimedLines = timedLines.filter(isLiveTimedLine);
+  const currentBillLabel = selectedTab ? billLabel(selectedTab) : "No bill selected";
+  const billTotalLabel = quote?.hasActiveTimedLines ? "Running bill" : "Final bill";
   const canStartTimedSession = Boolean(
     bootstrap?.activeShift &&
       selectedTabId &&
@@ -311,6 +334,17 @@ export function PosShell() {
       ) ?? [],
     [bootstrap?.resources, currentBranchId],
   );
+  const resourceUseById = useMemo(() => {
+    const uses = new Map<string, { tab: Tab; line: TimedLine }>();
+    for (const tab of tabs) {
+      for (const line of tab.timedLines) {
+        if (line.resourceId && isLiveTimedLine(line)) {
+          uses.set(line.resourceId, { tab, line });
+        }
+      }
+    }
+    return uses;
+  }, [tabs]);
   const paymentSummary = useMemo(
     () => summarizePaymentDrafts(paymentDrafts),
     [paymentDrafts],
@@ -428,7 +462,7 @@ export function PosShell() {
 
   async function startSession(resource: Resource) {
     if (!selectedTabId) {
-      setMessage("Select or create a customer tab first.");
+      setMessage("Create or select a customer bill first.");
       return;
     }
 
@@ -445,7 +479,7 @@ export function PosShell() {
         serviceCatalogId: service.id,
         resourceId: resource.id,
       },
-      { successMessage: "Timed session started." },
+      { successMessage: "Play started." },
     );
     if (payload?.timedLine) {
       setMovingTimedLineId("");
@@ -454,7 +488,7 @@ export function PosShell() {
 
   async function moveTimedSession(line: TimedLine, resourceId: string) {
     if (line.status !== "RUNNING") {
-      setMessage("Only a running timed session can be moved.");
+      setMessage("Only a running game can be moved.");
       return;
     }
 
@@ -464,40 +498,44 @@ export function PosShell() {
         tabTimedLineId: line.id,
         toResourceId: resourceId,
       },
-      { successMessage: "Timed session moved." },
+      { successMessage: "Game moved." },
     );
     if (payload?.timedLine) {
       setMovingTimedLineId("");
     }
   }
 
-  async function addRetailLine() {
-    if (!selectedTabId || !selectedProductId) {
+  async function addRetailLine(productId = selectedProductId) {
+    if (!selectedTabId || !productId) {
       setMessage("Select a tab and product first.");
       return;
     }
-    await postJson(
+    const tabId = selectedTabId;
+    const posted = await postJson(
       `/api/tabs/${selectedTabId}/retail-lines`,
       {
         tabId: selectedTabId,
-        productCatalogId: selectedProductId,
+        productCatalogId: productId,
         quantity: 1,
       },
-      { offlineDraft: true, successMessage: "Retail item added." },
+      { offlineDraft: true, successMessage: "Snack or drink added." },
     );
+    if (posted) {
+      await refreshQuote(tabId);
+    }
   }
 
   async function checkout() {
     if (!selectedTabId) {
-      setMessage("Select a tab before checkout.");
+      setMessage("Select a customer bill before checkout.");
       return;
     }
     if (quote?.hasActiveTimedLines) {
-      setMessage("Stop all timed sessions before final checkout.");
+      setMessage("Stop running games before checkout.");
       return;
     }
     if (!quote) {
-      setMessage("Wait for the server total before checkout.");
+      setMessage("Wait for the final bill before checkout.");
       return;
     }
     if (paymentSummary.hasInvalidAmount) {
@@ -510,7 +548,7 @@ export function PosShell() {
     }
     if (paymentSummary.totalAmount !== quote.totalAmount) {
       setMessage(
-        `Payment split is ${formatPaise(paymentSummary.totalAmount)}. Server total is ${formatPaise(quote.totalAmount)}.`,
+        `Payment is ${formatPaise(paymentSummary.totalAmount)}. Final bill is ${formatPaise(quote.totalAmount)}.`,
       );
       return;
     }
@@ -629,24 +667,42 @@ export function PosShell() {
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-normal">Counter POS</h1>
+          <h1 className="text-xl font-semibold tracking-normal">Selling counter</h1>
           <p className="text-sm text-zinc-600">
             {bootstrap?.user.name ?? "Operator"} - {bootstrap?.user.role ?? ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <OfflineStatus />
-          <select
-            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-            value={currentBranchId}
-            onChange={(event) => handleBranchChange(event.target.value)}
-          >
-            {bootstrap?.branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
+          {isStaff ? (
+            <div className="inline-flex min-h-10 items-center gap-2 rounded-md border border-zinc-300 bg-zinc-50 px-3 text-sm font-medium text-zinc-700">
+              <Lock className="h-4 w-4" />
+              <span className="grid leading-tight">
+                <span>
+                  {branchName(currentBranchId, bootstrap?.branches ?? []) ||
+                    "Assigned branch"}
+                </span>
+                <span className="text-xs font-normal text-zinc-500">
+                  Branch locked
+                </span>
+              </span>
+            </div>
+          ) : (
+            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              Branch
+              <select
+                className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
+                value={currentBranchId}
+                onChange={(event) => handleBranchChange(event.target.value)}
+              >
+                {bootstrap?.branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {loading && !bootstrap ? (
             <Badge>Loading</Badge>
           ) : bootstrap?.activeShift ? (
@@ -654,6 +710,7 @@ export function PosShell() {
               <Badge tone="success">Shift open</Badge>
               {actionPending ? <Badge tone="warning">Posting</Badge> : null}
               <Button
+                className="ml-2 border-red-200 text-red-700 hover:bg-red-50"
                 variant={closeShiftArmed ? "danger" : "secondary"}
                 onClick={closeShift}
                 disabled={actionPending}
@@ -664,6 +721,7 @@ export function PosShell() {
             </>
           ) : (
             <Button
+              className="min-h-12 px-5 text-base"
               onClick={openShift}
               disabled={!currentBranchId || actionPending}
             >
@@ -673,6 +731,22 @@ export function PosShell() {
           )}
         </div>
       </section>
+
+      {!bootstrap?.activeShift && !loading ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <div className="flex flex-wrap items-center gap-3">
+            <AlertTriangle className="h-5 w-5" />
+            <div>
+              <h2 className="text-base font-semibold">
+                Open your shift to start selling.
+              </h2>
+              <p className="text-sm">
+                Starting play, adding snacks, and checkout stay locked until the shift is open.
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {message ? (
         <div
@@ -775,17 +849,21 @@ export function PosShell() {
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold">Add session</h2>
+                <h2 className="text-lg font-semibold">Start play</h2>
                 <p className="text-sm text-zinc-600">
-                  Click an available Pool or PS5 resource to add it to the selected tab.
+                  Tap an available pool table or PS5 to add it to the current bill.
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {branchResources.map((resource) => {
                 const service = findServiceForResource(
                   resource,
                   bootstrap?.services ?? [],
+                );
+                const resourceUse = resourceUseById.get(resource.id) ?? null;
+                const estimatedLine = quote?.lines.find(
+                  (line) => line.sourceLineId === resourceUse?.line.id,
                 );
                 const canStart =
                   resource.status === "AVAILABLE" &&
@@ -797,27 +875,40 @@ export function PosShell() {
                     key={resource.id}
                     aria-label={
                       service
-                        ? `Add ${service.name} on ${resource.name} to current tab`
-                        : `Add timed session on ${resource.name} to current tab`
+                        ? `Start ${cashierServiceName(service)} on ${resource.name}`
+                        : `Start play on ${resource.name}`
                     }
-                    className="grid min-h-32 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`grid min-h-44 gap-3 rounded-lg border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed ${
+                      canStart
+                        ? "border-emerald-300 bg-emerald-50 hover:border-emerald-700"
+                        : resource.status === "MAINTENANCE"
+                          ? "border-red-200 bg-red-50"
+                          : "border-amber-200 bg-amber-50"
+                    }`}
                     disabled={!canStart}
                     onClick={() => startSession(resource)}
                   >
-                    <span className="text-sm font-semibold">{resource.name}</span>
-                    <span className="text-xs text-zinc-600">
-                      {resourceLabel(resource.kind)}
-                    </span>
-                    <Badge tone={resourceBadgeTone(resource.status)}>
-                      {formatStatus(resource.status)}
-                    </Badge>
-                    <span className="text-xs text-zinc-600">
-                      {service
-                        ? `${service.name} - ${formatPaise(service.pricingRule.ratePerMinute)}/min`
-                        : "Timed service missing"}
+                    <span className="grid gap-2">
+                      <span>
+                        <span className="block text-lg font-semibold">
+                          {resource.name}
+                        </span>
+                        <span className="mt-1 flex items-center gap-1.5 text-sm text-zinc-600">
+                          {resource.kind === "POOL_TABLE" ? (
+                            <CircleDot className="h-4 w-4" />
+                          ) : (
+                            <Monitor className="h-4 w-4" />
+                          )}
+                          {resourceLabel(resource.kind)}
+                        </span>
+                      </span>
+                      <ResourceStatusBadge
+                        resource={resource}
+                        liveLine={resourceUse?.line ?? null}
+                      />
                     </span>
                     {resource.status === "AVAILABLE" ? (
-                      <span className="text-xs font-medium text-zinc-700">
+                      <span className="rounded-md bg-white/80 px-3 py-2 text-sm font-semibold text-emerald-950">
                         {resourceStartState({
                           hasShift: Boolean(bootstrap?.activeShift),
                           hasTab: Boolean(selectedTabId),
@@ -825,7 +916,38 @@ export function PosShell() {
                           actionPending,
                         })}
                       </span>
-                    ) : null}
+                    ) : resourceUse ? (
+                      <span className="grid gap-1 rounded-md bg-white/80 px-3 py-2 text-sm text-zinc-800">
+                        <span className="flex items-center gap-1.5 font-semibold">
+                          <UserRound className="h-4 w-4" />
+                          {billLabel(resourceUse.tab)}
+                        </span>
+                        <span>
+                          {cashierLineDescription(resourceUse.line.descriptionSnapshot)} -{" "}
+                          {formatStatus(resourceUse.line.status)}
+                        </span>
+                        <span className="text-xs text-zinc-600">
+                          {elapsedLineLabel(resourceUse.line)}
+                        </span>
+                        <span className="text-xs text-zinc-600">
+                          {estimatedLine
+                            ? `Estimate ${formatPaise(estimatedLine.totalAmount)}`
+                            : "Select bill to see estimate"}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="rounded-md bg-white/80 px-3 py-2 text-sm font-medium text-amber-950">
+                        Not available
+                      </span>
+                    )}
+                    {service ? (
+                      <span className="text-sm text-zinc-700">
+                        {cashierServiceName(service)} -{" "}
+                        {formatPaise(service.pricingRule.ratePerMinute)}/min
+                      </span>
+                    ) : (
+                      <span className="text-sm text-red-700">Service missing</span>
+                    )}
                   </button>
                 );
               })}
@@ -839,22 +961,26 @@ export function PosShell() {
 
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">Running tabs</h2>
-              <div className="flex items-center gap-2">
-                <Input
-                  className="w-44"
-                  placeholder="Name or table label"
-                  value={customerLabel}
-                  onChange={(event) => setCustomerLabel(event.target.value)}
-                />
+              <h2 className="text-lg font-semibold">Open bills</h2>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                  Customer / table
+                  <Input
+                    className="w-48"
+                    placeholder="Walk-in, Table 2"
+                    value={customerLabel}
+                    onChange={(event) => setCustomerLabel(event.target.value)}
+                  />
+                </label>
                 <Button
+                  className="min-h-11 px-5"
                   onClick={createTab}
                   disabled={
                     !bootstrap?.activeShift || !currentBranchId || actionPending
                   }
                 >
                   <Plus className="h-4 w-4" />
-                  New tab
+                  New bill
                 </Button>
               </div>
             </div>
@@ -878,19 +1004,19 @@ export function PosShell() {
                       </span>
                       <span className="flex items-center gap-2">
                         {liveTimedCount > 0 ? (
-                          <Badge tone="warning">{liveTimedCount} live</Badge>
+                          <Badge tone="warning">{liveTimedCount} running</Badge>
                         ) : null}
                         <Badge>{tab.status}</Badge>
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-zinc-600">
-                      {tab.timedLines.length} timed - {tab.retailLines.length} retail
+                      {tab.timedLines.length} games - {tab.retailLines.length} snacks/drinks
                     </p>
                   </button>
                 );
               })}
               {!loading && tabs.length === 0 ? (
-                <p className="text-sm text-zinc-600">No open tabs.</p>
+                <p className="text-sm text-zinc-600">No open bills.</p>
               ) : null}
             </div>
           </div>
@@ -898,16 +1024,42 @@ export function PosShell() {
 
         <aside className="grid content-start gap-4">
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <h2 className="text-base font-semibold">Selected tab</h2>
+            <h2 className="text-lg font-semibold">Current bill</h2>
             {selectedTab ? (
               <div className="mt-3 grid gap-4">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="flex items-center gap-2 text-sm font-medium text-emerald-900">
+                        <UserRound className="h-4 w-4" />
+                        {currentBillLabel}
+                      </p>
+                      <p className="mt-1 text-xs text-emerald-800">
+                        {activeTimedLines.length > 0
+                          ? "Games are still running"
+                          : "Ready for checkout when payment matches"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-medium text-emerald-800">
+                        {quoteLoading ? "Calculating" : billTotalLabel}
+                      </p>
+                      <p className="text-2xl font-semibold">
+                        {quote ? formatPaise(quote.totalAmount) : "--"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold">Timed sessions</p>
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <Gamepad2 className="h-4 w-4 text-emerald-700" />
+                      Running games
+                    </p>
                     {activeTimedLines.length > 0 ? (
-                      <Badge tone="warning">{activeTimedLines.length} active</Badge>
+                      <Badge tone="warning">{activeTimedLines.length} running</Badge>
                     ) : (
-                      <Badge>None active</Badge>
+                      <Badge>None running</Badge>
                     )}
                   </div>
                   {timedLines.map((line) => {
@@ -928,7 +1080,7 @@ export function PosShell() {
                           <div className="min-w-0">
                             <span className="flex flex-wrap items-center gap-2">
                               <span className="truncate text-sm font-medium">
-                                {line.descriptionSnapshot}
+                                {cashierLineDescription(line.descriptionSnapshot)}
                               </span>
                               <Badge tone={timedLineBadgeTone(line.status)}>
                                 {formatStatus(line.status)}
@@ -936,6 +1088,8 @@ export function PosShell() {
                             </span>
                             <span className="mt-1 block text-xs text-zinc-600">
                               {line.resource?.name ?? "No resource"}
+                              {" - "}
+                              {elapsedLineLabel(line)}
                             </span>
                           </div>
                           <div className="flex flex-wrap justify-end gap-1">
@@ -943,14 +1097,14 @@ export function PosShell() {
                               aria-label={`Pause ${line.descriptionSnapshot} on ${
                                 line.resource?.name ?? "no resource"
                               }`}
-                              className="h-9 px-2"
+                              className="min-h-11 px-3"
                               variant="secondary"
                               onClick={() => {
                                 setMovingTimedLineId("");
                                 void postJson(
                                   "/api/service-sessions/pause",
                                   { tabTimedLineId: line.id },
-                                  { successMessage: "Timed session paused." },
+                                  { successMessage: "Game paused." },
                                 );
                               }}
                               disabled={actionPending || line.status !== "RUNNING"}
@@ -962,14 +1116,14 @@ export function PosShell() {
                               aria-label={`Resume ${line.descriptionSnapshot} on ${
                                 line.resource?.name ?? "no resource"
                               }`}
-                              className="h-9 px-2"
+                              className="min-h-11 px-3"
                               variant="secondary"
                               onClick={() => {
                                 setMovingTimedLineId("");
                                 void postJson(
                                   "/api/service-sessions/resume",
                                   { tabTimedLineId: line.id },
-                                  { successMessage: "Timed session resumed." },
+                                  { successMessage: "Game resumed." },
                                 );
                               }}
                               disabled={actionPending || line.status !== "PAUSED"}
@@ -981,14 +1135,14 @@ export function PosShell() {
                               aria-label={`Stop ${line.descriptionSnapshot} on ${
                                 line.resource?.name ?? "no resource"
                               }`}
-                              className="h-9 px-2"
+                              className="min-h-11 border-red-200 px-3 text-red-700 hover:bg-red-50"
                               variant="secondary"
                               onClick={() => {
                                 setMovingTimedLineId("");
                                 void postJson(
                                   "/api/service-sessions/stop",
                                   { tabTimedLineId: line.id },
-                                  { successMessage: "Timed session stopped." },
+                                  { successMessage: "Game stopped." },
                                 );
                               }}
                               disabled={
@@ -1003,7 +1157,7 @@ export function PosShell() {
                               aria-label={`Move ${line.descriptionSnapshot} from ${
                                 line.resource?.name ?? "no resource"
                               }`}
-                              className="h-9 px-2"
+                              className="min-h-11 px-3"
                               variant="ghost"
                               onClick={() =>
                                 setMovingTimedLineId((current) =>
@@ -1047,50 +1201,89 @@ export function PosShell() {
                   })}
                   {timedLines.length === 0 ? (
                     <p className="rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
-                      No timed sessions on this tab.
+                      No games on this bill.
                     </p>
                   ) : null}
                 </div>
 
-                <div className="grid gap-2">
-                  <div className="flex items-center gap-2">
-                    <select
-                      className="min-h-10 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-                      value={selectedProductId}
-                      onChange={(event) => setSelectedProductId(event.target.value)}
-                    >
-                      {bootstrap?.products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} - {formatPaise(product.unitPrice)}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      aria-label="Add retail item"
-                      disabled={actionPending}
-                      variant="secondary"
-                      onClick={addRetailLine}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {selectedTab.retailLines.map((line) => (
-                    <p key={line.id} className="text-sm text-zinc-700">
-                      {line.quantity} x {line.descriptionSnapshot} -{" "}
-                      {formatPaise(line.unitPriceSnapshot * line.quantity)}
+                <div className="grid gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <ShoppingBasket className="h-4 w-4 text-emerald-700" />
+                      Snacks & drinks
                     </p>
-                  ))}
+                    <Badge>{selectedTab.retailLines.length} item{selectedTab.retailLines.length === 1 ? "" : "s"}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(bootstrap?.products ?? []).slice(0, 4).map((product) => (
+                      <button
+                        key={product.id}
+                        className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={actionPending}
+                        onClick={() => addRetailLine(product.id)}
+                      >
+                        <span className="block text-sm font-semibold">
+                          {product.name}
+                        </span>
+                        <span className="mt-1 block text-sm text-zinc-600">
+                          {formatPaise(product.unitPrice)}
+                        </span>
+                        <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-800">
+                          <Plus className="h-3.5 w-3.5" />
+                          Add 1
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid gap-1">
+                    <label
+                      className="text-xs font-medium text-zinc-600"
+                      htmlFor="product-select"
+                    >
+                      More snacks & drinks
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <select
+                        id="product-select"
+                        className="min-h-10 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+                        value={selectedProductId}
+                        onChange={(event) => setSelectedProductId(event.target.value)}
+                      >
+                        {bootstrap?.products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} - {formatPaise(product.unitPrice)}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        aria-label="Add selected snack or drink"
+                        disabled={actionPending}
+                        variant="secondary"
+                        onClick={() => addRetailLine()}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid gap-1">
+                    {selectedTab.retailLines.map((line) => (
+                      <p key={line.id} className="text-sm text-zinc-700">
+                        {line.quantity} x {line.descriptionSnapshot} -{" "}
+                        {formatPaise(line.unitPriceSnapshot * line.quantity)}
+                      </p>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="grid gap-2 rounded-md border border-zinc-200 p-3">
+                <div className="grid gap-3 rounded-md border border-zinc-200 p-3">
                   <div className="flex items-center gap-2">
-                    <ReceiptText className="h-4 w-4 text-emerald-700" />
-                    <p className="text-sm font-semibold">Checkout</p>
+                    <Wallet className="h-4 w-4 text-emerald-700" />
+                    <p className="text-sm font-semibold">Payment</p>
                   </div>
                   <div className="rounded-md bg-zinc-50 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-sm text-zinc-600">
-                        {quoteLoading ? "Calculating" : "Server total"}
+                        {quoteLoading ? "Calculating" : billTotalLabel}
                       </span>
                       <span className="text-lg font-semibold">
                         {quote ? formatPaise(quote.totalAmount) : "--"}
@@ -1129,13 +1322,13 @@ export function PosShell() {
                     ) : null}
                     {quote?.hasActiveTimedLines ? (
                       <p className="mt-2 text-xs font-medium text-amber-900">
-                        Stop timed sessions before final checkout. This is a live estimate.
+                        Stop running games before checkout.
                       </p>
                     ) : null}
                   </div>
                   <div className="grid gap-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold">Payment split</p>
+                      <p className="text-sm font-semibold">Collect payment</p>
                       <Badge tone={paymentBalance === 0 ? "success" : "warning"}>
                         {paymentBalanceLabel(paymentBalance)}
                       </Badge>
@@ -1146,48 +1339,65 @@ export function PosShell() {
                         className="grid gap-2 rounded-md border border-zinc-200 bg-white p-2"
                       >
                         <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
-                          <select
-                            aria-label={`Tender ${index + 1}`}
-                            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-                            disabled={actionPending}
-                            value={paymentDraft.tenderType}
-                            onChange={(event) =>
-                              updatePaymentDraft(paymentDraft.id, {
-                                tenderType: event.target.value as TenderType,
-                              })
-                            }
-                          >
-                            <option value="UPI_GOOGLE_PAY">UPI - Google Pay</option>
-                            <option value="UPI_PHONEPE">UPI - PhonePe</option>
-                            <option value="UPI_OTHER">UPI - Other</option>
-                            <option value="CARD_RECORDED">Card recorded</option>
-                            <option value="CASH">Cash</option>
-                          </select>
-                          <Input
-                            aria-label={`Tender ${index + 1} amount`}
-                            disabled={actionPending}
-                            inputMode="decimal"
-                            placeholder="Amount"
-                            value={paymentDraft.amount}
-                            onChange={(event) =>
-                              updatePaymentDraft(paymentDraft.id, {
-                                amount: event.target.value,
-                              })
-                            }
-                          />
+                          <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                            Tender
+                            <select
+                              aria-label={`Tender ${index + 1}`}
+                              className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
+                              disabled={actionPending}
+                              value={paymentDraft.tenderType}
+                              onChange={(event) =>
+                                updatePaymentDraft(paymentDraft.id, {
+                                  tenderType: event.target.value as TenderType,
+                                })
+                              }
+                            >
+                              <option value="UPI_GOOGLE_PAY">UPI - Google Pay</option>
+                              <option value="UPI_PHONEPE">UPI - PhonePe</option>
+                              <option value="UPI_OTHER">UPI - Other</option>
+                              <option value="CARD_RECORDED">Card recorded</option>
+                              <option value="CASH">Cash</option>
+                            </select>
+                          </label>
+                          <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                            Amount
+                            <Input
+                              aria-label={`Tender ${index + 1} amount`}
+                              className="min-h-11"
+                              disabled={actionPending}
+                              inputMode="decimal"
+                              value={paymentDraft.amount}
+                              onChange={(event) =>
+                                updatePaymentDraft(paymentDraft.id, {
+                                  amount: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
                         </div>
-                        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                          <Input
-                            aria-label={`Tender ${index + 1} reference`}
-                            disabled={actionPending}
-                            placeholder="UPI ref / note"
-                            value={paymentDraft.reference}
-                            onChange={(event) =>
-                              updatePaymentDraft(paymentDraft.id, {
-                                reference: event.target.value,
-                              })
-                            }
-                          />
+                        <div
+                          className={`grid gap-2 ${
+                            paymentDrafts.length > 1
+                              ? "sm:grid-cols-[1fr_auto_auto]"
+                              : ""
+                          }`}
+                        >
+                          <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                            Reference / note
+                            <Input
+                              aria-label={`Tender ${index + 1} reference`}
+                              disabled={actionPending}
+                              placeholder="Optional UPI reference"
+                              value={paymentDraft.reference}
+                              onChange={(event) =>
+                                updatePaymentDraft(paymentDraft.id, {
+                                  reference: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          {paymentDrafts.length > 1 ? (
+                            <>
                           <Button
                             className="px-3"
                             disabled={!quote || actionPending}
@@ -1205,6 +1415,8 @@ export function PosShell() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -1215,14 +1427,19 @@ export function PosShell() {
                         disabled={paymentDrafts.length >= 5 || actionPending}
                       >
                         <Plus className="h-4 w-4" />
-                        Add tender
+                        Add another payment
                       </Button>
                       <Button
                         variant="secondary"
                         onClick={useTotalPayment}
-                        disabled={!quote || actionPending}
+                        disabled={
+                          !quote ||
+                          quote.totalAmount <= 0 ||
+                          quoteLoading ||
+                          actionPending
+                        }
                       >
-                        Use total
+                        Use bill total
                       </Button>
                     </div>
                     <div className="grid grid-cols-2 gap-2 rounded-md bg-zinc-50 p-3 text-sm">
@@ -1230,13 +1447,14 @@ export function PosShell() {
                       <span className="text-right font-semibold">
                         {formatPaise(paymentSummary.totalAmount)}
                       </span>
-                      <span className="text-zinc-600">Server total</span>
+                      <span className="text-zinc-600">{billTotalLabel}</span>
                       <span className="text-right font-semibold">
                         {quote ? formatPaise(quote.totalAmount) : "--"}
                       </span>
                     </div>
                   </div>
                   <Button
+                    className="min-h-14 text-base"
                     onClick={checkout}
                     disabled={!canPostCheckout}
                   >
@@ -1247,7 +1465,7 @@ export function PosShell() {
               </div>
             ) : (
               <p className="mt-3 text-sm text-zinc-600">
-                Select or create a tab to start billing.
+                Create or select a customer bill to start selling.
               </p>
             )}
           </div>
@@ -1255,6 +1473,48 @@ export function PosShell() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function ResourceStatusBadge({
+  resource,
+  liveLine,
+}: {
+  resource: Resource;
+  liveLine: TimedLine | null;
+}) {
+  if (resource.status === "AVAILABLE") {
+    return (
+      <Badge tone="success" className="w-fit text-sm">
+        <Check className="h-4 w-4" />
+        Available
+      </Badge>
+    );
+  }
+
+  if (resource.status === "MAINTENANCE") {
+    return (
+      <Badge tone="danger" className="w-fit text-sm">
+        <AlertTriangle className="h-4 w-4" />
+        Maintenance
+      </Badge>
+    );
+  }
+
+  if (liveLine?.status === "PAUSED" || resource.status === "PAUSED") {
+    return (
+      <Badge tone="warning" className="w-fit text-sm">
+        <CirclePause className="h-4 w-4" />
+        Paused
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge tone="warning" className="w-fit text-sm">
+      <Clock className="h-4 w-4" />
+      Occupied
+    </Badge>
   );
 }
 
@@ -1280,6 +1540,59 @@ function invoiceLineMeta(line: InvoiceLine): string {
   }
 
   return `${line.quantity ?? 1} x ${formatPaise(line.unitPrice)}`;
+}
+
+function billLabel(tab: Tab): string {
+  return tab.customerLabel || tab.customerName || "Walk-in bill";
+}
+
+function branchName(branchId: string, branches: readonly Branch[]): string {
+  return branches.find((branch) => branch.id === branchId)?.name ?? "";
+}
+
+function cashierServiceName(service: Service): string {
+  return cashierLineDescription(`${service.name} ${service.description}`);
+}
+
+function cashierLineDescription(description: string): string {
+  const normalized = description.toLowerCase();
+  if (normalized.includes("pool")) {
+    return "Pool play";
+  }
+  if (normalized.includes("ps5") || normalized.includes("console")) {
+    return "PS5 play";
+  }
+  return description;
+}
+
+function elapsedLineLabel(line: TimedLine): string {
+  if (line.status === "STOPPED" || line.status === "CLOSED") {
+    return "Stopped";
+  }
+
+  const latestLiveEvent = [...(line.sessionEvents ?? [])]
+    .reverse()
+    .find((event) => event.eventType === "STARTED" || event.eventType === "RESUMED");
+
+  if (!latestLiveEvent) {
+    return line.status === "PAUSED" ? "Paused" : "Just started";
+  }
+
+  const occurredAt = new Date(latestLiveEvent.occurredAt).getTime();
+  if (!Number.isFinite(occurredAt)) {
+    return line.status === "PAUSED" ? "Paused" : "Running";
+  }
+
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - occurredAt) / 60_000),
+  );
+
+  if (line.status === "PAUSED") {
+    return minutes <= 0 ? "Paused just now" : `Paused after ${minutes} min`;
+  }
+
+  return minutes <= 0 ? "Started just now" : `${minutes} min running`;
 }
 
 function createPaymentDraft(
@@ -1410,18 +1723,6 @@ function resourceLabel(kind: Resource["kind"]): string {
   return kind === "POOL_TABLE" ? "Pool table" : "PS5 console";
 }
 
-function resourceBadgeTone(
-  status: Resource["status"],
-): "neutral" | "success" | "warning" | "danger" {
-  if (status === "AVAILABLE") {
-    return "success";
-  }
-  if (status === "MAINTENANCE") {
-    return "danger";
-  }
-  return "warning";
-}
-
 function resourceKindForTimedLine(line: TimedLine): Resource["kind"] | null {
   const description = line.descriptionSnapshot.toLowerCase();
   if (description.includes("pool")) {
@@ -1451,10 +1752,10 @@ function resourceStartState({
     return "Open shift first";
   }
   if (!hasTab) {
-    return "Select tab";
+    return "Select bill";
   }
   if (!hasService) {
     return "Service missing";
   }
-  return "Ready to start";
+  return "Tap to start";
 }

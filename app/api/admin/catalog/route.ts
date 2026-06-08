@@ -9,28 +9,45 @@ export async function GET(): Promise<NextResponse> {
     const auth = await requireAuth();
     requirePermission(auth.role, "catalog:write");
 
-    const [services, products, taxRates, resources] = await Promise.all([
-      prisma.serviceCatalog.findMany({
-        where: { legalEntityId: auth.legalEntityId },
-        include: { pricingRule: true, taxRate: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.productCatalog.findMany({
-        where: { legalEntityId: auth.legalEntityId },
-        include: { taxRate: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.taxRate.findMany({
-        where: { legalEntityId: auth.legalEntityId },
-        orderBy: [{ code: "asc" }, { effectiveFrom: "desc" }],
-      }),
-      prisma.resource.findMany({
-        where: { legalEntityId: auth.legalEntityId },
-        orderBy: [{ branchId: "asc" }, { name: "asc" }],
-      }),
-    ]);
+    const [branches, services, products, taxRates, resources, discountRules] =
+      await Promise.all([
+        prisma.branch.findMany({
+          where: { legalEntityId: auth.legalEntityId },
+          orderBy: { name: "asc" },
+        }),
+        prisma.serviceCatalog.findMany({
+          where: { legalEntityId: auth.legalEntityId },
+          include: { pricingRule: true, taxRate: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.productCatalog.findMany({
+          where: { legalEntityId: auth.legalEntityId },
+          include: { taxRate: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.taxRate.findMany({
+          where: { legalEntityId: auth.legalEntityId },
+          orderBy: [{ code: "asc" }, { effectiveFrom: "desc" }],
+        }),
+        prisma.resource.findMany({
+          where: { legalEntityId: auth.legalEntityId },
+          orderBy: [{ branchId: "asc" }, { name: "asc" }],
+        }),
+        prisma.discountRule.findMany({
+          where: { legalEntityId: auth.legalEntityId },
+          include: { branch: { select: { name: true, code: true } } },
+          orderBy: [{ isActive: "desc" }, { name: "asc" }],
+        }),
+      ]);
 
-    return NextResponse.json({ services, products, taxRates, resources });
+    return NextResponse.json({
+      branches,
+      services,
+      products,
+      taxRates,
+      resources,
+      discountRules,
+    });
   } catch (error) {
     return errorResponse(error);
   }

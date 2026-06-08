@@ -67,15 +67,31 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const now = new Date();
-    const invoiceSeries = await prisma.invoiceSeries.findFirst({
-      where: {
-        legalEntityId: auth.legalEntityId,
-        branchId: tab.branchId,
-        financialYear: compactFinancialYear(now),
-        isActive: true,
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const [invoiceSeries, automaticDiscountRules] = await Promise.all([
+      prisma.invoiceSeries.findFirst({
+        where: {
+          legalEntityId: auth.legalEntityId,
+          branchId: tab.branchId,
+          financialYear: compactFinancialYear(now),
+          isActive: true,
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.discountRule.findMany({
+        where: {
+          legalEntityId: auth.legalEntityId,
+          isActive: true,
+          OR: [{ branchId: tab.branchId }, { branchId: null }],
+          effectiveFrom: { lte: now },
+          AND: [
+            {
+              OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+            },
+          ],
+        },
+        orderBy: [{ discountPercent: "desc" }, { createdAt: "asc" }],
+      }),
+    ]);
 
     if (!invoiceSeries) {
       throw new AppError(
@@ -124,13 +140,29 @@ export async function POST(request: Request): Promise<NextResponse> {
         quantity: line.quantity,
         discountAmount: line.discountAmount,
       })),
+      automaticDiscountRules: automaticDiscountRules.map((rule) => ({
+        id: rule.id,
+        name: rule.name,
+        branchId: rule.branchId,
+        discountPercent: rule.discountPercent,
+        minimumBillableMinutes: rule.minimumBillableMinutes,
+        daysOfWeek: rule.daysOfWeek,
+        startMinuteOfDay: rule.startMinuteOfDay,
+        endMinuteOfDay: rule.endMinuteOfDay,
+        effectiveFrom: rule.effectiveFrom,
+        effectiveTo: rule.effectiveTo,
+      })),
       discountAmount: input.discountAmount,
       invoiceSeriesSnapshot: invoiceSeries.prefix,
       intraState: tab.branch.stateCode === tab.legalEntity.stateCode,
       now,
+      branchTimeZone: tab.branch.timezone,
     });
-    const grossBeforeDiscount = draft.totalAmount + draft.discountAmount;
-    if ((input.discountAmount ?? 0) > grossBeforeDiscount) {
+    const grossBeforeDiscount = draft.grossAmount;
+    if (
+      (input.discountAmount ?? 0) >
+      Math.max(0, grossBeforeDiscount - draft.automaticDiscountAmount)
+    ) {
       throw new AppError(
         400,
         "DISCOUNT_EXCEEDS_BILL",
@@ -155,7 +187,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
     const { highDiscountRequiresOverride } = assertDiscountCheckoutRules({
       role: auth.role,
-      discountAmount: draft.discountAmount,
+      discountAmount: draft.manualDiscountAmount,
       grossAmount: grossBeforeDiscount,
       discountReason: input.discountReason,
       managerOverrideId: input.managerOverrideId,
@@ -400,9 +432,15 @@ export async function POST(request: Request): Promise<NextResponse> {
             action: "DISCOUNT_APPLIED",
             targetType: "gst_invoice",
             targetId: invoice.id,
-            reason: input.discountReason,
+            reason:
+              input.discountReason ??
+              (draft.automaticDiscountAmount > 0
+                ? "Configured automatic discount."
+                : undefined),
             afterJson: {
               grossAmount: grossBeforeDiscount,
+              automaticDiscountAmount: draft.automaticDiscountAmount,
+              manualDiscountAmount: draft.manualDiscountAmount,
               discountAmount: draft.discountAmount,
               finalAmount: draft.totalAmount,
               managerOverrideId: managerOverride?.id ?? null,
@@ -424,6 +462,8 @@ export async function POST(request: Request): Promise<NextResponse> {
             invoiceNumber,
             totalAmount: invoice.totalAmount,
             paymentCount: input.payments.length,
+            automaticDiscountAmount: draft.automaticDiscountAmount,
+            manualDiscountAmount: draft.manualDiscountAmount,
             discountAmount: draft.discountAmount,
             managerOverrideId: managerOverride?.id ?? null,
           },

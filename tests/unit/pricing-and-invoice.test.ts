@@ -126,6 +126,72 @@ describe("pricing and GST invoice draft", () => {
       billableMinutes: 10,
     });
   });
+
+  it("applies configured happy hour discounts to eligible timed play", () => {
+    const draft = buildInvoiceDraft({
+      invoiceSeriesSnapshot: "GXA012526",
+      intraState: true,
+      timedLines: [
+        {
+          ...timedLine("pool-line", "Pool table timed play"),
+          events: [
+            {
+              eventType: "STARTED" as const,
+              occurredAt: new Date("2026-06-08T04:30:00Z"),
+            },
+            {
+              eventType: "STOPPED" as const,
+              occurredAt: new Date("2026-06-08T05:30:00Z"),
+            },
+          ],
+        },
+      ],
+      retailLines: [],
+      automaticDiscountRules: [
+        {
+          id: "happy-hour",
+          name: "Happy Hour",
+          discountPercent: 30,
+          minimumBillableMinutes: 60,
+          daysOfWeek: [1, 2],
+          startMinuteOfDay: 10 * 60,
+          endMinuteOfDay: 17 * 60,
+        },
+      ],
+      branchTimeZone: "Asia/Kolkata",
+    });
+
+    expect(draft.grossAmount).toBe(30000);
+    expect(draft.automaticDiscountAmount).toBe(9000);
+    expect(draft.manualDiscountAmount).toBe(0);
+    expect(draft.discountAmount).toBe(9000);
+    expect(draft.totalAmount).toBe(21000);
+    expect(draft.lines[0].pricingRuleUsed).toContain("Happy Hour 30%");
+  });
+
+  it("does not apply happy hour below the configured minimum duration", () => {
+    const draft = buildInvoiceDraft({
+      invoiceSeriesSnapshot: "GXA012526",
+      intraState: true,
+      timedLines: [timedLine("pool-line", "Pool table timed play")],
+      retailLines: [],
+      automaticDiscountRules: [
+        {
+          id: "happy-hour",
+          name: "Happy Hour",
+          discountPercent: 30,
+          minimumBillableMinutes: 60,
+          daysOfWeek: [1, 2],
+          startMinuteOfDay: 10 * 60,
+          endMinuteOfDay: 17 * 60,
+        },
+      ],
+      branchTimeZone: "Asia/Kolkata",
+    });
+
+    expect(draft.automaticDiscountAmount).toBe(0);
+    expect(draft.totalAmount).toBe(5000);
+  });
 });
 
 function timedLine(id: string, description: string) {

@@ -160,6 +160,8 @@ type CheckoutQuote = {
   cgstAmount: number;
   sgstAmount: number;
   igstAmount: number;
+  automaticDiscountAmount: number;
+  manualDiscountAmount: number;
   discountAmount: number;
   totalAmount: number;
   managerDiscountLimitPercent: number;
@@ -452,6 +454,11 @@ export function PosShell() {
   });
   const discountSummary =
     requestedDiscountAmount > 0 ? formatPaise(requestedDiscountAmount) : null;
+  const automaticDiscountAmount = quote?.automaticDiscountAmount ?? 0;
+  const automaticDiscountSummary =
+    automaticDiscountAmount > 0 ? formatPaise(automaticDiscountAmount) : null;
+  const totalDiscountSummary =
+    quote && quote.discountAmount > 0 ? formatPaise(quote.discountAmount) : null;
   const paymentStatusLabel = quote
     ? staffPaymentStatusLabel({
         paymentTotal: paymentSummary.totalAmount,
@@ -1227,6 +1234,9 @@ export function PosShell() {
                   bootstrap?.services ?? [],
                 );
                 const resourceUse = resourceUseById.get(resource.id) ?? null;
+                const resourceTiming = resourceUse
+                  ? timedLineTiming(resourceUse.line, timingNowMs)
+                  : null;
                 const estimatedLine = quote?.lines.find(
                   (line) => line.sourceLineId === resourceUse?.line.id,
                 );
@@ -1290,7 +1300,7 @@ export function PosShell() {
                       resource={resource}
                       liveLine={resourceUse?.line ?? null}
                     />
-                    {resourceUse ? (
+                    {resourceUse && resourceTiming ? (
                       <>
                         <div className="grid gap-1 rounded-md bg-white/80 px-3 py-2 text-sm text-zinc-800">
                           <span className="flex items-center gap-1.5 font-semibold">
@@ -1311,6 +1321,20 @@ export function PosShell() {
                                 ? "Estimate calculating"
                                 : "Open bill to see estimate"}
                           </span>
+                          <div className="mt-2 grid grid-cols-3 gap-2 rounded-md bg-zinc-50 p-2">
+                            <TimingStat
+                              label="Start"
+                              value={formatSessionTime(resourceTiming.startAt)}
+                            />
+                            <TimingStat
+                              label="Stop"
+                              value={formatSessionTime(resourceTiming.stopAt)}
+                            />
+                            <TimingStat
+                              label="Duration"
+                              value={formatDuration(resourceTiming.durationMs)}
+                            />
+                          </div>
                         </div>
                         <div className="grid gap-2">
                           <Button
@@ -1890,7 +1914,7 @@ export function PosShell() {
                                       />
                                     </span>
                                   </button>
-                                  {sourceExpanded && sourceTiming ? (
+                                  {sourceTiming ? (
                                     <div className="mt-2 grid grid-cols-3 gap-2 rounded-md bg-zinc-50 p-2">
                                       <TimingStat
                                         label="Start"
@@ -2005,12 +2029,18 @@ export function PosShell() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold">
-                          {discountSummary
-                            ? `Discount -${discountSummary}`
+                          {totalDiscountSummary
+                            ? `Discount -${totalDiscountSummary}`
                             : "No discount"}
                         </p>
+                        {automaticDiscountSummary ? (
+                          <p className="text-xs text-emerald-800">
+                            Automatic -{automaticDiscountSummary}
+                          </p>
+                        ) : null}
                         {discountSummary ? (
                           <p className="text-xs text-zinc-600">
+                            Manual -{discountSummary} ·{" "}
                             {discountReason.trim() || "Reason required before checkout"}
                           </p>
                         ) : null}

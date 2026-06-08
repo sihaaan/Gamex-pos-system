@@ -135,6 +135,37 @@ export const taxRateSchema = z.object({
   reason: z.string().trim().min(3).max(240),
 });
 
+export const discountRuleSchema = z
+  .object({
+    id: cuidSchema.optional(),
+    branchId: cuidSchema.nullable().optional(),
+    name: z.string().trim().min(2).max(80),
+    discountPercent: z.number().int().min(1).max(100),
+    minimumBillableMinutes: z.number().int().min(0).max(1440),
+    daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+    startMinuteOfDay: z.number().int().min(0).max(1439),
+    endMinuteOfDay: z.number().int().min(1).max(1440),
+    isActive: z.boolean(),
+    reason: z.string().trim().min(3).max(240),
+  })
+  .superRefine((value, context) => {
+    if (new Set(value.daysOfWeek).size !== value.daysOfWeek.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Each weekday can only be selected once.",
+        path: ["daysOfWeek"],
+      });
+    }
+
+    if (value.startMinuteOfDay === value.endMinuteOfDay) {
+      context.addIssue({
+        code: "custom",
+        message: "Start and end time cannot be the same.",
+        path: ["endMinuteOfDay"],
+      });
+    }
+  });
+
 export const loginSchema = z.object({
   email: z.string().trim().email().max(255),
   password: z.string().min(8).max(200),

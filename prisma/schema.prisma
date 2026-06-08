@@ -134,6 +134,7 @@ model LegalEntity {
   auditLogs           AuditLog[]
   branches            Branch[]
   creditNotes         CreditNote[]
+  discountRules       DiscountRule[]
   gstInvoices         GstInvoice[]
   invoiceSeries       InvoiceSeries[]
   journalAccounts     JournalAccount[]
@@ -176,6 +177,7 @@ model Branch {
 
   legalEntity        LegalEntity         @relation(fields: [legalEntityId], references: [id])
   creditNotes        CreditNote[]
+  discountRules      DiscountRule[]
   gstInvoices        GstInvoice[]
   invoiceSeries      InvoiceSeries[]
   managerOverrides   ManagerOverride[]
@@ -386,6 +388,29 @@ model TaxRate {
 
   @@index([legalEntityId, code, effectiveFrom])
   @@map("tax_rates")
+}
+
+model DiscountRule {
+  id                     String   @id @default(cuid())
+  legalEntityId          String   @map("legal_entity_id")
+  branchId               String?  @map("branch_id")
+  name                   String
+  discountPercent        Int      @map("discount_percent")
+  minimumBillableMinutes Int      @default(60) @map("minimum_billable_minutes")
+  daysOfWeek             Int[]    @map("days_of_week")
+  startMinuteOfDay       Int      @map("start_minute_of_day")
+  endMinuteOfDay         Int      @map("end_minute_of_day")
+  isActive               Boolean  @default(true) @map("is_active")
+  effectiveFrom          DateTime @default(now()) @map("effective_from")
+  effectiveTo            DateTime? @map("effective_to")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  branch      Branch?      @relation(fields: [branchId], references: [id])
+  legalEntity LegalEntity  @relation(fields: [legalEntityId], references: [id])
+
+  @@index([legalEntityId, branchId, isActive])
+  @@map("discount_rules")
 }
 
 model ServiceCatalog {

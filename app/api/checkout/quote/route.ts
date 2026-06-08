@@ -30,15 +30,31 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const now = new Date();
-    const invoiceSeries = await prisma.invoiceSeries.findFirst({
-      where: {
-        legalEntityId: auth.legalEntityId,
-        branchId: tab.branchId,
-        financialYear: compactFinancialYear(now),
-        isActive: true,
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const [invoiceSeries, automaticDiscountRules] = await Promise.all([
+      prisma.invoiceSeries.findFirst({
+        where: {
+          legalEntityId: auth.legalEntityId,
+          branchId: tab.branchId,
+          financialYear: compactFinancialYear(now),
+          isActive: true,
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.discountRule.findMany({
+        where: {
+          legalEntityId: auth.legalEntityId,
+          isActive: true,
+          OR: [{ branchId: tab.branchId }, { branchId: null }],
+          effectiveFrom: { lte: now },
+          AND: [
+            {
+              OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+            },
+          ],
+        },
+        orderBy: [{ discountPercent: "desc" }, { createdAt: "asc" }],
+      }),
+    ]);
 
     if (!invoiceSeries) {
       throw new AppError(
@@ -90,17 +106,30 @@ export async function GET(request: Request): Promise<NextResponse> {
           unitPrice: line.unitPriceSnapshot,
           quantity: line.quantity,
           discountAmount: line.discountAmount,
-        })),
+      })),
+      automaticDiscountRules: automaticDiscountRules.map((rule) => ({
+        id: rule.id,
+        name: rule.name,
+        branchId: rule.branchId,
+        discountPercent: rule.discountPercent,
+        minimumBillableMinutes: rule.minimumBillableMinutes,
+        daysOfWeek: rule.daysOfWeek,
+        startMinuteOfDay: rule.startMinuteOfDay,
+        endMinuteOfDay: rule.endMinuteOfDay,
+        effectiveFrom: rule.effectiveFrom,
+        effectiveTo: rule.effectiveTo,
+      })),
       discountAmount,
       invoiceSeriesSnapshot: invoiceSeries.prefix,
       intraState: tab.branch.stateCode === tab.legalEntity.stateCode,
       now,
+      branchTimeZone: tab.branch.timezone,
     });
 
     return NextResponse.json({
       quote: {
         ...draft,
-        grossAmount: draft.totalAmount + draft.discountAmount,
+        grossAmount: draft.grossAmount,
         managerDiscountLimitPercent: Number(
           process.env.MANAGER_DISCOUNT_LIMIT_PERCENT ?? "10",
         ),

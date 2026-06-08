@@ -80,6 +80,7 @@ async function main() {
 
     await seedUsers(entity.id, branches[0].id, passwordHash, entityInput.code);
     await seedRolePermissions(entity.id);
+    await seedDiscountRules(entity.id);
     const sac = await ensureTaxRate(entity.id, "9996", "SAC", "Recreation services", 18);
     const beverages = await ensureTaxRate(entity.id, "2202", "HSN", "Beverages", 18);
     const snacks = await ensureTaxRate(entity.id, "2106", "HSN", "Prepared snacks", 18);
@@ -137,6 +138,41 @@ async function main() {
   }
 
   console.log(`Seed complete. Default password: ${defaultPassword}`);
+}
+
+async function seedDiscountRules(legalEntityId: string) {
+  const existing = await prisma.discountRule.findFirst({
+    where: {
+      legalEntityId,
+      branchId: null,
+      name: "Happy Hour",
+    },
+  });
+  const data = {
+    discountPercent: 30,
+    minimumBillableMinutes: 60,
+    daysOfWeek: [1, 2],
+    startMinuteOfDay: 10 * 60,
+    endMinuteOfDay: 17 * 60,
+    isActive: true,
+  };
+
+  if (existing) {
+    await prisma.discountRule.update({
+      where: { id: existing.id },
+      data,
+    });
+    return;
+  }
+
+  await prisma.discountRule.create({
+    data: {
+      legalEntityId,
+      branchId: null,
+      name: "Happy Hour",
+      ...data,
+    },
+  });
 }
 
 async function seedUsers(

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { PwaBoot } from "@/components/pwa/pwa-boot";
 import { getAuthContext } from "@/lib/auth/session";
 import { visibleNavItems } from "@/lib/navigation";
@@ -35,7 +36,7 @@ export default async function RootLayout({
   children: ReactNode;
 }>) {
   const auth = await getAuthContext();
-  const navItems = visibleNavItems(auth?.role);
+  const navItems = auth ? visibleNavItems(auth.role) : [];
 
   return (
     <html
@@ -49,17 +50,20 @@ export default async function RootLayout({
             <Link href="/pos" className="text-base font-semibold tracking-normal">
               GameX POS
             </Link>
-            <nav className="flex items-center gap-1 text-sm">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  className="rounded-md px-3 py-2 hover:bg-zinc-100"
-                  href={item.href}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="flex items-center gap-2">
+              <nav className="flex items-center gap-1 text-sm">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    className="rounded-md px-3 py-2 hover:bg-zinc-100"
+                    href={item.href}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+              {auth ? <SignOutButton /> : null}
+            </div>
           </div>
         </header>
         {children}

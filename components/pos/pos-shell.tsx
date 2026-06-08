@@ -13,7 +13,6 @@ import {
   ExternalLink,
   Gamepad2,
   Lock,
-  LogOut,
   Monitor,
   MoveRight,
   Plus,
@@ -1017,12 +1016,17 @@ export function PosShell() {
               <Badge tone="success">Shift open</Badge>
               {actionPending ? <Badge tone="warning">Posting</Badge> : null}
               <Button
-                className="ml-2 border-red-200 text-red-700 hover:bg-red-50"
+                aria-label="Close operator shift"
+                className={
+                  closeShiftArmed
+                    ? "ml-2"
+                    : "ml-2 border-zinc-300 text-zinc-800 hover:bg-zinc-100"
+                }
                 variant={closeShiftArmed ? "danger" : "secondary"}
                 onClick={closeShift}
                 disabled={actionPending}
               >
-                <LogOut className="h-4 w-4" />
+                <CheckCircle2 className="h-4 w-4" />
                 {closeShiftArmed ? "Close anyway" : "Close shift"}
               </Button>
             </>

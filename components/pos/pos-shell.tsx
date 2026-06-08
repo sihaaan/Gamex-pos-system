@@ -99,6 +99,11 @@ type SessionEvent = {
     | "MANUAL_ADJUSTED";
   occurredAt: string;
 };
+type TimedLineTiming = {
+  startAt: Date | null;
+  stopAt: Date | null;
+  durationMs: number | null;
+};
 type RetailLine = {
   id: string;
   descriptionSnapshot: string;
@@ -206,6 +211,7 @@ export function PosShell() {
   const [managerEmailOrCode, setManagerEmailOrCode] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
   const [managerOverrideId, setManagerOverrideId] = useState<string | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [paymentDrafts, setPaymentDrafts] = useState<PaymentDraft[]>([
     createPaymentDraft("payment-1"),
   ]);
@@ -335,6 +341,11 @@ export function PosShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setClockNow(Date.now()), 15_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const quoteGrossAmount = quote?.grossAmount ?? 0;
   const requestedDiscountAmount = useMemo(
     () =>
@@ -369,7 +380,13 @@ export function PosShell() {
   const timedLines = selectedTab?.timedLines ?? [];
   const activeTimedLines = timedLines.filter(isLiveTimedLine);
   const currentBillLabel = selectedTab ? billLabel(selectedTab) : "No bill selected";
-  const billTotalLabel = quote?.hasActiveTimedLines ? "Running bill" : "Final bill";
+  const billDueLabel = quote?.hasActiveTimedLines ? "Running estimate" : "Amount due";
+  const quoteServerNowMs = quote ? Date.parse(quote.serverNow) : Number.NaN;
+  const timingNowMs = Number.isFinite(clockNow)
+    ? clockNow
+    : Number.isFinite(quoteServerNowMs)
+      ? quoteServerNowMs
+      : null;
   const canUseResourceBoard = Boolean(bootstrap?.activeShift && !actionPending);
   const branchResources = useMemo(
     () =>
@@ -1379,10 +1396,10 @@ export function PosShell() {
               <div className="mt-3 grid gap-4">
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="flex items-center gap-2 text-sm font-medium text-emerald-900">
                         <UserRound className="h-4 w-4" />
-                        {currentBillLabel}
+                        <span className="truncate">{currentBillLabel}</span>
                       </p>
                       <p className="mt-1 text-xs text-emerald-800">
                         {activeTimedLines.length > 0
@@ -1392,19 +1409,30 @@ export function PosShell() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-medium text-emerald-800">
-                        {quoteLoading ? "Calculating" : billTotalLabel}
+                        {quoteLoading ? "Calculating" : billDueLabel}
                       </p>
                       <p className="text-2xl font-semibold">
                         {quote ? formatPaise(quote.totalAmount) : "--"}
                       </p>
                     </div>
                   </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <BillMiniStat label="Games" value={String(timedLines.length)} />
+                    <BillMiniStat
+                      label="Snacks"
+                      value={String(selectedTab.retailLines.length)}
+                    />
+                    <BillMiniStat
+                      label="Status"
+                      value={activeTimedLines.length > 0 ? "Running" : "Ready"}
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between gap-3">
                     <p className="flex items-center gap-2 text-sm font-semibold">
                       <Gamepad2 className="h-4 w-4 text-emerald-700" />
-                      Running games
+                      Games
                     </p>
                     {activeTimedLines.length > 0 ? (
                       <Badge tone="warning">{activeTimedLines.length} active</Badge>
@@ -1414,6 +1442,13 @@ export function PosShell() {
                   </div>
                   {timedLines.map((line) => {
                     const isMoving = movingTimedLineId === line.id;
+                    const lineTiming = timedLineTiming(line, timingNowMs);
+                    const hasGameControls =
+                      line.status === "RUNNING" || line.status === "PAUSED";
+                    const quoteLine =
+                      quote?.lines.find(
+                        (invoiceLine) => invoiceLine.sourceLineId === line.id,
+                      ) ?? null;
                     const moveTargetKind = resourceKindForTimedLine(line);
                     const availableMoveTargets = branchResources.filter(
                       (resource) =>
@@ -1441,81 +1476,106 @@ export function PosShell() {
                               {" - "}
                               {elapsedLineLabel(line)}
                             </span>
+                            {quoteLine ? (
+                              <span className="mt-1 block truncate text-xs font-medium text-emerald-800">
+                                Est. {formatPaise(quoteLine.totalAmount)}
+                                {quoteLine.billableMinutes
+                                  ? ` - ${quoteLine.billableMinutes} min`
+                                  : ""}
+                              </span>
+                            ) : null}
                           </div>
-                          <div className="flex flex-wrap justify-end gap-1">
-                            <Button
-                              aria-label={`Pause ${line.descriptionSnapshot} on ${
-                                line.resource?.name ?? "no resource"
-                              }`}
-                              className="min-h-11 px-3"
-                              variant="secondary"
-                              onClick={() => {
-                                void pauseTimedLine(line);
-                              }}
-                              disabled={actionPending || line.status !== "RUNNING"}
-                            >
-                              <CirclePause className="h-4 w-4" />
-                              Pause
-                            </Button>
-                            <Button
-                              aria-label={`Resume ${line.descriptionSnapshot} on ${
-                                line.resource?.name ?? "no resource"
-                              }`}
-                              className="min-h-11 px-3"
-                              variant="secondary"
-                              onClick={() => {
-                                void resumeTimedLine(line);
-                              }}
-                              disabled={actionPending || line.status !== "PAUSED"}
-                            >
-                              <CirclePlay className="h-4 w-4" />
-                              Resume
-                            </Button>
-                            <Button
-                              aria-label={`Stop ${line.descriptionSnapshot} on ${
-                                line.resource?.name ?? "no resource"
-                              }`}
-                              className={
-                                stopConfirmLineId === line.id
-                                  ? "min-h-11 px-3"
-                                  : "min-h-11 border-red-200 px-3 text-red-700 hover:bg-red-50"
-                              }
-                              variant={
-                                stopConfirmLineId === line.id
-                                  ? "danger"
-                                  : "secondary"
-                              }
-                              onClick={() => {
-                                void stopTimedLine(line);
-                              }}
-                              disabled={
-                                actionPending ||
-                                (line.status !== "RUNNING" && line.status !== "PAUSED")
-                              }
-                            >
-                              <Square className="h-4 w-4" />
-                              {stopConfirmLineId === line.id ? "Confirm stop" : "Stop"}
-                            </Button>
-                            {line.status === "RUNNING" ? (
+                          {hasGameControls ? (
+                            <div className="flex flex-wrap justify-end gap-1">
+                              {line.status === "RUNNING" ? (
+                                <Button
+                                  aria-label={`Pause ${line.descriptionSnapshot} on ${
+                                    line.resource?.name ?? "no resource"
+                                  }`}
+                                  className="min-h-11 px-3"
+                                  variant="secondary"
+                                  onClick={() => {
+                                    void pauseTimedLine(line);
+                                  }}
+                                  disabled={actionPending}
+                                >
+                                  <CirclePause className="h-4 w-4" />
+                                  Pause
+                                </Button>
+                              ) : null}
+                              {line.status === "PAUSED" ? (
+                                <Button
+                                  aria-label={`Resume ${line.descriptionSnapshot} on ${
+                                    line.resource?.name ?? "no resource"
+                                  }`}
+                                  className="min-h-11 px-3"
+                                  variant="secondary"
+                                  onClick={() => {
+                                    void resumeTimedLine(line);
+                                  }}
+                                  disabled={actionPending}
+                                >
+                                  <CirclePlay className="h-4 w-4" />
+                                  Resume
+                                </Button>
+                              ) : null}
                               <Button
-                                aria-label={`Move game from ${
+                                aria-label={`Stop ${line.descriptionSnapshot} on ${
                                   line.resource?.name ?? "no resource"
                                 }`}
-                                className="min-h-11 px-3"
-                                variant="ghost"
+                                className={
+                                  stopConfirmLineId === line.id
+                                    ? "min-h-11 px-3"
+                                    : "min-h-11 border-red-200 px-3 text-red-700 hover:bg-red-50"
+                                }
+                                variant={
+                                  stopConfirmLineId === line.id
+                                    ? "danger"
+                                    : "secondary"
+                                }
                                 onClick={() => {
-                                  setStopConfirmLineId("");
-                                  setMovingTimedLineId((current) =>
-                                    current === line.id ? "" : line.id,
-                                  );
+                                  void stopTimedLine(line);
                                 }}
                                 disabled={actionPending}
                               >
-                                <MoveRight className="h-4 w-4" />
-                                Move game
+                                <Square className="h-4 w-4" />
+                                {stopConfirmLineId === line.id ? "Confirm stop" : "Stop"}
                               </Button>
-                            ) : null}
-                          </div>
+                              {line.status === "RUNNING" ? (
+                                <Button
+                                  aria-label={`Move game from ${
+                                    line.resource?.name ?? "no resource"
+                                  }`}
+                                  className="min-h-11 px-3"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setStopConfirmLineId("");
+                                    setMovingTimedLineId((current) =>
+                                      current === line.id ? "" : line.id,
+                                    );
+                                  }}
+                                  disabled={actionPending}
+                                >
+                                  <MoveRight className="h-4 w-4" />
+                                  Move game
+                                </Button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 rounded-md bg-zinc-50 p-2">
+                          <TimingStat
+                            label="Start"
+                            value={formatSessionTime(lineTiming.startAt)}
+                          />
+                          <TimingStat
+                            label="Stop"
+                            value={formatSessionTime(lineTiming.stopAt)}
+                          />
+                          <TimingStat
+                            label="Duration"
+                            value={formatDuration(lineTiming.durationMs)}
+                          />
                         </div>
                         {isMoving ? (
                           <div className="mt-3 rounded-md bg-zinc-50 p-3">
@@ -1628,12 +1688,19 @@ export function PosShell() {
                   </div>
                   <div className="rounded-md bg-zinc-50 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-zinc-600">
-                        {quoteLoading ? "Calculating" : billTotalLabel}
-                      </span>
-                      <span className="text-lg font-semibold">
-                        {quote ? formatPaise(quote.totalAmount) : "--"}
-                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-950">
+                          Bill summary
+                        </p>
+                        <p className="text-xs text-zinc-600">
+                          {quoteLoading
+                            ? "Calculating latest bill"
+                            : "Server-confirmed quote"}
+                        </p>
+                      </div>
+                      <Badge tone={quote?.hasActiveTimedLines ? "warning" : "success"}>
+                        {quoteLoading ? "Calculating" : billDueLabel}
+                      </Badge>
                     </div>
                     {quote ? (
                       <>
@@ -1660,7 +1727,7 @@ export function PosShell() {
                             }
                           />
                           <BreakdownRow
-                            label="Final bill"
+                            label="Amount due"
                             value={quote.totalAmount}
                             strong
                           />
@@ -1937,7 +2004,7 @@ export function PosShell() {
                       <span className="text-right font-semibold">
                         {formatPaise(paymentSummary.totalAmount)}
                       </span>
-                      <span className="text-zinc-600">{billTotalLabel}</span>
+                      <span className="text-zinc-600">Amount due</span>
                       <span className="text-right font-semibold">
                         {quote ? formatPaise(quote.totalAmount) : "--"}
                       </span>
@@ -1963,6 +2030,26 @@ export function PosShell() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function BillMiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-white/80 px-3 py-2">
+      <p className="text-[11px] font-medium uppercase text-emerald-800">
+        {label}
+      </p>
+      <p className="truncate text-sm font-semibold text-emerald-950">{value}</p>
+    </div>
+  );
+}
+
+function TimingStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium uppercase text-zinc-500">{label}</p>
+      <p className="truncate text-xs font-semibold text-zinc-900">{value}</p>
+    </div>
   );
 }
 
@@ -2134,6 +2221,97 @@ function elapsedLineLabel(line: TimedLine): string {
   }
 
   return minutes <= 0 ? "Started just now" : `${minutes} min running`;
+}
+
+function timedLineTiming(
+  line: TimedLine,
+  nowMs: number | null,
+): TimedLineTiming {
+  const events = (line.sessionEvents ?? [])
+    .map((event) => ({
+      eventType: event.eventType,
+      occurredAtMs: Date.parse(event.occurredAt),
+    }))
+    .filter((event) => Number.isFinite(event.occurredAtMs))
+    .sort((left, right) => left.occurredAtMs - right.occurredAtMs);
+
+  let startAtMs: number | null = null;
+  let stopAtMs: number | null = null;
+  let activeSinceMs: number | null = null;
+  let durationMs = 0;
+  let canMeasureDuration = true;
+
+  for (const event of events) {
+    if (event.eventType === "STARTED" || event.eventType === "RESUMED") {
+      startAtMs ??= event.occurredAtMs;
+      activeSinceMs = event.occurredAtMs;
+      stopAtMs = null;
+      continue;
+    }
+
+    if (event.eventType === "PAUSED") {
+      if (activeSinceMs !== null) {
+        durationMs += Math.max(0, event.occurredAtMs - activeSinceMs);
+        activeSinceMs = null;
+      }
+      continue;
+    }
+
+    if (event.eventType === "STOPPED" || event.eventType === "CLOSED") {
+      if (activeSinceMs !== null) {
+        durationMs += Math.max(0, event.occurredAtMs - activeSinceMs);
+        activeSinceMs = null;
+      }
+      stopAtMs = event.occurredAtMs;
+    }
+  }
+
+  if (activeSinceMs !== null) {
+    if (nowMs === null) {
+      canMeasureDuration = false;
+    } else {
+      durationMs += Math.max(0, nowMs - activeSinceMs);
+    }
+  }
+
+  return {
+    startAt: startAtMs === null ? null : new Date(startAtMs),
+    stopAt: stopAtMs === null ? null : new Date(stopAtMs),
+    durationMs:
+      startAtMs === null || !canMeasureDuration ? null : Math.max(0, durationMs),
+  };
+}
+
+function formatSessionTime(value: Date | null): string {
+  if (!value) {
+    return "--";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "numeric",
+    hour12: true,
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  }).format(value);
+}
+
+function formatDuration(durationMs: number | null): string {
+  if (durationMs === null) {
+    return "--";
+  }
+
+  const totalMinutes = Math.floor(durationMs / 60_000);
+  if (totalMinutes < 1) {
+    return "Under 1 min";
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) {
+    return `${totalMinutes} min`;
+  }
+
+  return minutes > 0 ? `${hours} hr ${minutes} min` : `${hours} hr`;
 }
 
 function createPaymentDraft(

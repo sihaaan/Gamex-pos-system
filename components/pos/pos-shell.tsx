@@ -861,6 +861,9 @@ export function PosShell() {
   }
 
   function handleTabSelect(tabId: string) {
+    if (tabId === selectedTabId) {
+      return;
+    }
     setSelectedTabId(tabId);
     setMovingTimedLineId("");
     setStopConfirmLineId("");

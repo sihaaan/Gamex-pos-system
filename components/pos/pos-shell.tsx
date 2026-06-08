@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  ChevronDown,
   Check,
   CheckCircle2,
   CircleDot,
@@ -33,6 +34,12 @@ import {
   nextWalkInBillLabel,
   resourceStartBillLabel,
 } from "@/lib/pos/bill-labels";
+import {
+  compactBillStats,
+  staffBillStatus,
+  staffInvoiceLineLabel,
+  staffServiceName,
+} from "@/lib/pos/display";
 import { formatPaise } from "@/lib/utils";
 
 type Bootstrap = {
@@ -205,6 +212,8 @@ export function PosShell() {
   const [startPrompt, setStartPrompt] = useState<StartPrompt | null>(null);
   const [startBillLabel, setStartBillLabel] = useState("");
   const [discountOpen, setDiscountOpen] = useState(false);
+  const [billDetailsOpen, setBillDetailsOpen] = useState(false);
+  const [expandedStoppedLineId, setExpandedStoppedLineId] = useState("");
   const [discountType, setDiscountType] = useState<DiscountType>("AMOUNT");
   const [discountValue, setDiscountValue] = useState("");
   const [discountReason, setDiscountReason] = useState("");
@@ -244,6 +253,15 @@ export function PosShell() {
   function resetDiscountDraft() {
     setDiscountOpen(false);
     setDiscountType("AMOUNT");
+    setDiscountValue("");
+    setDiscountReason("");
+    setManagerEmailOrCode("");
+    setManagerPassword("");
+    setManagerOverrideId(null);
+  }
+
+  function removeDiscountDraft() {
+    setDiscountOpen(false);
     setDiscountValue("");
     setDiscountReason("");
     setManagerEmailOrCode("");
@@ -421,6 +439,26 @@ export function PosShell() {
     quoteGrossAmount > 0
       ? (requestedDiscountAmount / quoteGrossAmount) * 100
       : 0;
+  const currentBillStatus = staffBillStatus({
+    activeTimedLineCount: activeTimedLines.length,
+    timedLineCount: timedLines.length,
+    paymentBalance,
+    totalAmount: quote?.totalAmount ?? 0,
+  });
+  const currentBillStats = compactBillStats({
+    gameCount: timedLines.length,
+    snackCount: selectedTab?.retailLines.length ?? 0,
+    status: currentBillStatus,
+  });
+  const discountSummary =
+    requestedDiscountAmount > 0 ? formatPaise(requestedDiscountAmount) : null;
+  const paymentStatusLabel = quote
+    ? paymentBalance === 0
+      ? `Payment matched ${formatPaise(paymentSummary.totalAmount)}`
+      : paymentBalance > 0
+        ? `Remaining ${formatPaise(paymentBalance)}`
+        : `Overpaid ${formatPaise(Math.abs(paymentBalance))}`
+    : "Payment not ready";
   const discountReasonMissing =
     requestedDiscountAmount > 0 && discountReason.trim().length === 0;
   const discountRequiresManagerApproval = Boolean(
@@ -789,7 +827,7 @@ export function PosShell() {
     }
     if (paymentSummary.totalAmount !== quote.totalAmount) {
       setMessage(
-        `Payment is ${formatPaise(paymentSummary.totalAmount)}. Final bill is ${formatPaise(quote.totalAmount)}.`,
+        `Payment is ${formatPaise(paymentSummary.totalAmount)}. Amount due is ${formatPaise(quote.totalAmount)}.`,
       );
       return;
     }
@@ -812,6 +850,8 @@ export function PosShell() {
       setQuote(null);
       setMovingTimedLineId("");
       setStopConfirmLineId("");
+      setExpandedStoppedLineId("");
+      setBillDetailsOpen(false);
     }
   }
 
@@ -819,10 +859,12 @@ export function PosShell() {
     setSelectedTabId(tabId);
     setMovingTimedLineId("");
     setStopConfirmLineId("");
+    setExpandedStoppedLineId("");
     setStartPrompt(null);
     setStartBillLabel("");
     resetPaymentDrafts();
     resetDiscountDraft();
+    setBillDetailsOpen(false);
     setQuote(null);
   }
 
@@ -831,10 +873,12 @@ export function PosShell() {
     setSelectedTabId("");
     setMovingTimedLineId("");
     setStopConfirmLineId("");
+    setExpandedStoppedLineId("");
     setStartPrompt(null);
     setStartBillLabel("");
     resetPaymentDrafts();
     resetDiscountDraft();
+    setBillDetailsOpen(false);
     setQuote(null);
     setCloseShiftArmed(false);
     setMessage(null);
@@ -1242,7 +1286,7 @@ export function PosShell() {
                             {billLabel(resourceUse.tab)}
                           </span>
                           <span>
-                            {cashierLineDescription(resourceUse.line.descriptionSnapshot)}{" "}
+                            {staffServiceName(resourceUse.line.descriptionSnapshot)}{" "}
                             - {statusLabel(resourceUse.line.status)}
                           </span>
                           <span className="text-xs text-zinc-600">
@@ -1377,7 +1421,12 @@ export function PosShell() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-zinc-600">
-                      {tab.timedLines.length} games - {tab.retailLines.length} snacks/drinks
+                      {tab.timedLines.length}{" "}
+                      {tab.timedLines.length === 1 ? "game" : "games"} -{" "}
+                      {tab.retailLines.length}{" "}
+                      {tab.retailLines.length === 1
+                        ? "snack/drink"
+                        : "snacks/drinks"}
                     </p>
                   </button>
                 );
@@ -1397,7 +1446,7 @@ export function PosShell() {
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="flex items-center gap-2 text-sm font-medium text-emerald-900">
+                      <p className="flex items-center gap-2 text-base font-semibold text-emerald-950">
                         <UserRound className="h-4 w-4" />
                         <span className="truncate">{currentBillLabel}</span>
                       </p>
@@ -1416,17 +1465,9 @@ export function PosShell() {
                       </p>
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <BillMiniStat label="Games" value={String(timedLines.length)} />
-                    <BillMiniStat
-                      label="Snacks"
-                      value={String(selectedTab.retailLines.length)}
-                    />
-                    <BillMiniStat
-                      label="Status"
-                      value={activeTimedLines.length > 0 ? "Running" : "Ready"}
-                    />
-                  </div>
+                  <p className="mt-3 text-sm font-medium text-emerald-900">
+                    {currentBillStats}
+                  </p>
                 </div>
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between gap-3">
@@ -1445,6 +1486,8 @@ export function PosShell() {
                     const lineTiming = timedLineTiming(line, timingNowMs);
                     const hasGameControls =
                       line.status === "RUNNING" || line.status === "PAUSED";
+                    const isStoppedLine = !hasGameControls;
+                    const isStoppedExpanded = expandedStoppedLineId === line.id;
                     const quoteLine =
                       quote?.lines.find(
                         (invoiceLine) => invoiceLine.sourceLineId === line.id,
@@ -1461,11 +1504,52 @@ export function PosShell() {
                         key={line.id}
                         className="rounded-md border border-zinc-200 bg-white p-3"
                       >
+                        {isStoppedLine ? (
+                          <button
+                            className="grid w-full gap-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+                            onClick={() =>
+                              setExpandedStoppedLineId((current) =>
+                                current === line.id ? "" : line.id,
+                              )
+                            }
+                            type="button"
+                          >
+                            <span className="flex items-center justify-between gap-3">
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold text-zinc-950">
+                                  {line.resource?.name ??
+                                    staffServiceName(line.descriptionSnapshot)}
+                                </span>
+                                <span className="mt-0.5 block truncate text-xs text-zinc-600">
+                                  {staffServiceName(line.descriptionSnapshot)}
+                                  {quoteLine?.billableMinutes
+                                    ? ` - ${quoteLine.billableMinutes} min`
+                                    : ""}
+                                </span>
+                              </span>
+                              <span className="flex shrink-0 items-center gap-2">
+                                {quoteLine ? (
+                                  <span className="text-sm font-semibold text-zinc-950">
+                                    {formatPaise(quoteLine.totalAmount)}
+                                  </span>
+                                ) : null}
+                                <Badge tone={timedLineBadgeTone(line.status)}>
+                                  {statusLabel(line.status)}
+                                </Badge>
+                                <ChevronDown
+                                  className={`h-4 w-4 text-zinc-500 transition ${
+                                    isStoppedExpanded ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </span>
+                            </span>
+                          </button>
+                        ) : (
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <span className="flex flex-wrap items-center gap-2">
                               <span className="truncate text-sm font-medium">
-                                {cashierLineDescription(line.descriptionSnapshot)}
+                                {staffServiceName(line.descriptionSnapshot)}
                               </span>
                               <Badge tone={timedLineBadgeTone(line.status)}>
                                 {statusLabel(line.status)}
@@ -1563,6 +1647,8 @@ export function PosShell() {
                             </div>
                           ) : null}
                         </div>
+                        )}
+                        {!isStoppedLine || isStoppedExpanded ? (
                         <div className="mt-3 grid grid-cols-3 gap-2 rounded-md bg-zinc-50 p-2">
                           <TimingStat
                             label="Start"
@@ -1577,6 +1663,7 @@ export function PosShell() {
                             value={formatDuration(lineTiming.durationMs)}
                           />
                         </div>
+                        ) : null}
                         {isMoving ? (
                           <div className="mt-3 rounded-md bg-zinc-50 p-3">
                             <p className="mb-2 text-xs font-medium text-zinc-700">
@@ -1686,98 +1773,143 @@ export function PosShell() {
                     <Wallet className="h-4 w-4 text-emerald-700" />
                     <p className="text-sm font-semibold">Payment</p>
                   </div>
-                  <div className="rounded-md bg-zinc-50 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
+                  {quote ? (
+                    <div className="grid gap-3 rounded-md bg-zinc-50 p-3">
+                      <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-semibold text-zinc-950">
-                          Bill summary
+                          Items on bill
                         </p>
-                        <p className="text-xs text-zinc-600">
-                          {quoteLoading
-                            ? "Calculating latest bill"
-                            : "Server-confirmed quote"}
-                        </p>
+                        <Badge>{quote.lines.length} line{quote.lines.length === 1 ? "" : "s"}</Badge>
                       </div>
-                      <Badge tone={quote?.hasActiveTimedLines ? "warning" : "success"}>
-                        {quoteLoading ? "Calculating" : billDueLabel}
-                      </Badge>
-                    </div>
-                    {quote ? (
-                      <>
-                        <div className="mt-3 grid gap-1.5 text-sm">
-                          <BreakdownRow
-                            label="Gross amount"
-                            value={quote.grossAmount}
-                          />
-                          <BreakdownRow
-                            label="Discount"
-                            value={quote.discountAmount}
-                            tone="discount"
-                          />
-                          <BreakdownRow
-                            label="Taxable value"
-                            value={quote.taxableValue}
-                          />
-                          <BreakdownRow
-                            label="GST"
-                            value={
-                              quote.cgstAmount +
-                              quote.sgstAmount +
-                              quote.igstAmount
+                      <div className="grid gap-1.5">
+                        {quote.lines.map((line, index) => (
+                          <div
+                            key={
+                              line.id ??
+                              line.sourceLineId ??
+                              `${line.description}-${index}`
                             }
-                          />
-                          <BreakdownRow
-                            label="Amount due"
-                            value={quote.totalAmount}
-                            strong
-                          />
-                        </div>
-                        <div className="mt-3 grid gap-1.5">
-                          {quote.lines.map((line, index) => (
-                            <div
-                              key={
-                                line.id ??
-                                line.sourceLineId ??
-                                `${line.description}-${index}`
-                              }
-                              className="flex items-center justify-between gap-3 text-sm"
-                            >
-                              <span className="min-w-0 truncate">
-                                {line.description}
-                                <span className="ml-2 text-xs text-zinc-500">
-                                  {invoiceLineMeta(line)}
-                                </span>
-                              </span>
-                              <span className="font-medium">
-                                {formatPaise(line.totalAmount)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    ) : null}
-                    {quote?.hasActiveTimedLines ? (
-                      <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
-                        <AlertTriangle className="h-4 w-4" />
-                        Stop running games before checkout.
+                            className="flex items-center justify-between gap-3 text-sm"
+                          >
+                            <span className="min-w-0 truncate">
+                              {staffInvoiceLineLabel(line)}
+                            </span>
+                            <span className="shrink-0 font-medium">
+                              {formatPaise(line.totalAmount)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ) : null}
-                  </div>
+
+                      <div className="rounded-md border border-zinc-200 bg-white p-2">
+                        <button
+                          className="flex min-h-10 w-full items-center justify-between gap-3 text-left"
+                          onClick={() =>
+                            setBillDetailsOpen((current) => !current)
+                          }
+                          type="button"
+                        >
+                          <span className="flex items-center gap-2 text-sm font-semibold">
+                            Bill details
+                            <ChevronDown
+                              className={`h-4 w-4 text-zinc-500 transition ${
+                                billDetailsOpen ? "rotate-180" : ""
+                              }`}
+                            />
+                          </span>
+                          <span className="text-sm font-semibold">
+                            {formatPaise(quote.totalAmount)}
+                          </span>
+                        </button>
+                        {quote.discountAmount > 0 ? (
+                          <div className="flex items-center justify-between gap-3 border-t border-zinc-100 pt-2 text-sm">
+                            <span className="text-zinc-600">Discount</span>
+                            <span className="font-medium text-emerald-800">
+                              -{formatPaise(quote.discountAmount)}
+                            </span>
+                          </div>
+                        ) : null}
+                        {billDetailsOpen ? (
+                          <div className="mt-2 grid gap-1.5 border-t border-zinc-100 pt-2 text-sm">
+                            <BreakdownRow
+                              label="Gross amount"
+                              value={quote.grossAmount}
+                            />
+                            <BreakdownRow
+                              label="Discount"
+                              value={quote.discountAmount}
+                              tone="discount"
+                            />
+                            <BreakdownRow
+                              label="Taxable value"
+                              value={quote.taxableValue}
+                            />
+                            <BreakdownRow
+                              label="GST"
+                              value={
+                                quote.cgstAmount +
+                                quote.sgstAmount +
+                                quote.igstAmount
+                              }
+                            />
+                            <BreakdownRow
+                              label="Amount due"
+                              value={quote.totalAmount}
+                              strong
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {quote.hasActiveTimedLines ? (
+                        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+                          <AlertTriangle className="h-4 w-4" />
+                          Stop running games before checkout.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="rounded-md bg-zinc-50 p-3 text-sm text-zinc-600">
+                      {quoteLoading ? "Calculating bill..." : "Select a bill to see items."}
+                    </div>
+                  )}
                   <div className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-semibold">Discount</p>
-                        <p className="text-xs text-zinc-600">
-                          Reason is required. High discounts need manager approval.
+                        <p className="text-sm font-semibold">
+                          {discountSummary
+                            ? `Discount -${discountSummary}`
+                            : "No discount"}
                         </p>
+                        {discountSummary ? (
+                          <p className="text-xs text-zinc-600">
+                            {discountReason.trim() || "Reason required before checkout"}
+                          </p>
+                        ) : null}
                       </div>
-                      <Button
-                        variant="secondary"
-                        onClick={() => setDiscountOpen((current) => !current)}
-                        disabled={!quote || actionPending}
-                      >
-                        {discountOpen ? "Hide discount" : "Discount"}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {discountSummary ? (
+                          <Button
+                            className="px-3"
+                            disabled={actionPending}
+                            onClick={removeDiscountDraft}
+                            variant="ghost"
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
+                        <Button
+                          variant="secondary"
+                          onClick={() => setDiscountOpen((current) => !current)}
+                          disabled={!quote || actionPending}
+                        >
+                          {discountOpen
+                            ? "Done"
+                            : discountSummary
+                              ? "Edit"
+                              : "Add discount"}
+                        </Button>
+                      </div>
                     </div>
                     {discountOpen ? (
                       <div className="grid gap-3">
@@ -1999,15 +2131,14 @@ export function PosShell() {
                         Use bill total
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 rounded-md bg-zinc-50 p-3 text-sm">
-                      <span className="text-zinc-600">Payment total</span>
-                      <span className="text-right font-semibold">
-                        {formatPaise(paymentSummary.totalAmount)}
-                      </span>
-                      <span className="text-zinc-600">Amount due</span>
-                      <span className="text-right font-semibold">
-                        {quote ? formatPaise(quote.totalAmount) : "--"}
-                      </span>
+                    <div
+                      className={`rounded-md px-3 py-2 text-sm font-semibold ${
+                        paymentBalance === 0
+                          ? "bg-emerald-50 text-emerald-900"
+                          : "bg-amber-50 text-amber-950"
+                      }`}
+                    >
+                      {paymentStatusLabel}
                     </div>
                   </div>
                   <Button
@@ -2030,17 +2161,6 @@ export function PosShell() {
         </aside>
       </section>
     </main>
-  );
-}
-
-function BillMiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-white/80 px-3 py-2">
-      <p className="text-[11px] font-medium uppercase text-emerald-800">
-        {label}
-      </p>
-      <p className="truncate text-sm font-semibold text-emerald-950">{value}</p>
-    </div>
   );
 }
 
@@ -2179,18 +2299,7 @@ function branchName(branchId: string, branches: readonly Branch[]): string {
 }
 
 function cashierServiceName(service: Service): string {
-  return cashierLineDescription(`${service.name} ${service.description}`);
-}
-
-function cashierLineDescription(description: string): string {
-  const normalized = description.toLowerCase();
-  if (normalized.includes("pool")) {
-    return "Pool play";
-  }
-  if (normalized.includes("ps5") || normalized.includes("console")) {
-    return "PS5 play";
-  }
-  return description;
+  return staffServiceName(`${service.name} ${service.description}`);
 }
 
 function elapsedLineLabel(line: TimedLine): string {

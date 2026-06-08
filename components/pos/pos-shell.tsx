@@ -29,6 +29,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveDraftAction } from "@/lib/offline/draft-queue";
+import {
+  nextWalkInBillLabel,
+  resourceStartBillLabel,
+} from "@/lib/pos/bill-labels";
 import { formatPaise } from "@/lib/utils";
 
 type Bootstrap = {
@@ -177,6 +181,10 @@ type ShiftCloseSummary = {
   unusualActions: unknown;
   generatedAt: string;
 };
+type StartPrompt = {
+  resource: Resource;
+  suggestedLabel: string;
+};
 
 export function PosShell() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
@@ -185,6 +193,8 @@ export function PosShell() {
   const [selectedTabId, setSelectedTabId] = useState("");
   const [movingTimedLineId, setMovingTimedLineId] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [startPrompt, setStartPrompt] = useState<StartPrompt | null>(null);
+  const [startBillLabel, setStartBillLabel] = useState("");
   const [paymentDrafts, setPaymentDrafts] = useState<PaymentDraft[]>([
     createPaymentDraft("payment-1"),
   ]);
@@ -198,6 +208,7 @@ export function PosShell() {
   const [lastShiftSummary, setLastShiftSummary] =
     useState<ShiftCloseSummary | null>(null);
   const [closeShiftArmed, setCloseShiftArmed] = useState(false);
+  const [stopConfirmLineId, setStopConfirmLineId] = useState("");
   const [actionPending, setActionPending] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -322,11 +333,7 @@ export function PosShell() {
   const activeTimedLines = timedLines.filter(isLiveTimedLine);
   const currentBillLabel = selectedTab ? billLabel(selectedTab) : "No bill selected";
   const billTotalLabel = quote?.hasActiveTimedLines ? "Running bill" : "Final bill";
-  const canStartTimedSession = Boolean(
-    bootstrap?.activeShift &&
-      selectedTabId &&
-      !actionPending,
-  );
+  const canUseResourceBoard = Boolean(bootstrap?.activeShift && !actionPending);
   const branchResources = useMemo(
     () =>
       bootstrap?.resources.filter(
@@ -445,13 +452,14 @@ export function PosShell() {
   }
 
   async function createTab() {
+    const label = customerLabel.trim() || nextWalkInBillLabel(tabs);
     const payload = await postJson<{ tab: Tab }>(
       "/api/tabs",
       {
         branchId: currentBranchId,
-        customerLabel: customerLabel || undefined,
+        customerLabel: label,
       },
-      { offlineDraft: true, successMessage: "Tab created." },
+      { offlineDraft: true, successMessage: `${label} created.` },
     );
     setCustomerLabel("");
     if (payload?.tab) {
@@ -460,12 +468,69 @@ export function PosShell() {
     }
   }
 
-  async function startSession(resource: Resource) {
-    if (!selectedTabId) {
-      setMessage("Create or select a customer bill first.");
+  function openStartPrompt(resource: Resource) {
+    if (!bootstrap?.activeShift) {
+      setMessage("Open your shift to start selling.");
       return;
     }
 
+    const service = findServiceForResource(resource, bootstrap.services);
+    if (!service) {
+      setMessage(`No timed service is configured for ${resourceLabel(resource.kind)}.`);
+      return;
+    }
+
+    const suggestedLabel = resourceStartBillLabel(resource.name, tabs);
+    setStartPrompt({ resource, suggestedLabel });
+    setStartBillLabel(suggestedLabel);
+    setMessage(null);
+  }
+
+  async function confirmStartPrompt() {
+    if (!startPrompt) {
+      return;
+    }
+    if (!navigator.onLine) {
+      setMessage("Reconnect before starting play.");
+      return;
+    }
+
+    const label = startBillLabel.trim() || startPrompt.suggestedLabel;
+    const resource = startPrompt.resource;
+    setStartPrompt(null);
+    setStartBillLabel("");
+
+    const payload = await postJson<{ tab: Tab }>(
+      "/api/tabs",
+      {
+        branchId: currentBranchId,
+        customerLabel: label,
+      },
+      { successMessage: `${label} created.` },
+    );
+
+    if (!payload?.tab) {
+      return;
+    }
+
+    setSelectedTabId(payload.tab.id);
+    await startSessionForTab(resource, payload.tab.id, label);
+  }
+
+  async function startSession(resource: Resource) {
+    if (!selectedTabId || !selectedTab) {
+      openStartPrompt(resource);
+      return;
+    }
+
+    await startSessionForTab(resource, selectedTabId, billLabel(selectedTab));
+  }
+
+  async function startSessionForTab(
+    resource: Resource,
+    tabId: string,
+    targetBillLabel: string,
+  ) {
     const service = findServiceForResource(resource, bootstrap?.services ?? []);
     if (!service) {
       setMessage(`No timed service is configured for ${resourceLabel(resource.kind)}.`);
@@ -475,14 +540,17 @@ export function PosShell() {
     const payload = await postJson<{ timedLine: TimedLine }>(
       "/api/service-sessions/start",
       {
-        tabId: selectedTabId,
+        tabId,
         serviceCatalogId: service.id,
         resourceId: resource.id,
       },
-      { successMessage: "Play started." },
+      { successMessage: `${resource.name} added to ${targetBillLabel}.` },
     );
     if (payload?.timedLine) {
+      setSelectedTabId(tabId);
       setMovingTimedLineId("");
+      setStopConfirmLineId("");
+      await refresh({ branchId: currentBranchId, preferredTabId: tabId });
     }
   }
 
@@ -502,7 +570,47 @@ export function PosShell() {
     );
     if (payload?.timedLine) {
       setMovingTimedLineId("");
+      setStopConfirmLineId("");
     }
+  }
+
+  async function pauseTimedLine(line: TimedLine) {
+    setMovingTimedLineId("");
+    setStopConfirmLineId("");
+    await postJson(
+      "/api/service-sessions/pause",
+      { tabTimedLineId: line.id },
+      { successMessage: "Game paused." },
+    );
+  }
+
+  async function resumeTimedLine(line: TimedLine) {
+    setMovingTimedLineId("");
+    setStopConfirmLineId("");
+    await postJson(
+      "/api/service-sessions/resume",
+      { tabTimedLineId: line.id },
+      { successMessage: "Game resumed." },
+    );
+  }
+
+  async function stopTimedLine(line: TimedLine) {
+    if (stopConfirmLineId !== line.id) {
+      setMovingTimedLineId("");
+      setStopConfirmLineId(line.id);
+      setMessage(
+        `Tap Confirm stop to stop ${line.resource?.name ?? "this game"}.`,
+      );
+      return;
+    }
+
+    setMovingTimedLineId("");
+    setStopConfirmLineId("");
+    await postJson(
+      "/api/service-sessions/stop",
+      { tabTimedLineId: line.id },
+      { successMessage: "Game stopped." },
+    );
   }
 
   async function addRetailLine(productId = selectedProductId) {
@@ -565,12 +673,16 @@ export function PosShell() {
       resetPaymentDrafts();
       setQuote(null);
       setMovingTimedLineId("");
+      setStopConfirmLineId("");
     }
   }
 
   function handleTabSelect(tabId: string) {
     setSelectedTabId(tabId);
     setMovingTimedLineId("");
+    setStopConfirmLineId("");
+    setStartPrompt(null);
+    setStartBillLabel("");
     resetPaymentDrafts();
     setQuote(null);
   }
@@ -579,6 +691,9 @@ export function PosShell() {
     setSelectedBranchId(branchId);
     setSelectedTabId("");
     setMovingTimedLineId("");
+    setStopConfirmLineId("");
+    setStartPrompt(null);
+    setStartBillLabel("");
     resetPaymentDrafts();
     setQuote(null);
     setCloseShiftArmed(false);
@@ -630,7 +745,7 @@ export function PosShell() {
       ),
     ]);
     paymentsEditedRef.current = true;
-    setMessage("Payment set to the server total.");
+    setMessage(`Payment updated to ${formatPaise(quote.totalAmount)}.`);
   }
 
   function fillPaymentRemainder(paymentDraftId: string) {
@@ -757,6 +872,60 @@ export function PosShell() {
         </div>
       ) : null}
 
+      {startPrompt ? (
+        <div
+          aria-labelledby="start-play-title"
+          aria-modal="true"
+          className="fixed inset-0 z-50 grid place-items-center bg-zinc-950/40 px-4"
+          role="dialog"
+        >
+          <form
+            className="grid w-full max-w-sm gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-xl"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmStartPrompt();
+            }}
+          >
+            <div>
+              <h2
+                className="text-lg font-semibold tracking-normal"
+                id="start-play-title"
+              >
+                Start play on {startPrompt.resource.name}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Create a bill and start this game in one step.
+              </p>
+            </div>
+            <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+              Customer / table name
+              <Input
+                autoFocus
+                value={startBillLabel}
+                onChange={(event) => setStartBillLabel(event.target.value)}
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button
+                disabled={actionPending}
+                onClick={() => {
+                  setStartPrompt(null);
+                  setStartBillLabel("");
+                }}
+                type="button"
+                variant="secondary"
+              >
+                Cancel
+              </Button>
+              <Button disabled={actionPending} type="submit">
+                <CirclePlay className="h-4 w-4" />
+                Start play
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
       {lastPostedInvoice ? (
         <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -851,7 +1020,7 @@ export function PosShell() {
               <div>
                 <h2 className="text-lg font-semibold">Start play</h2>
                 <p className="text-sm text-zinc-600">
-                  Tap an available pool table or PS5 to add it to the current bill.
+                  Tap an available pool table or PS5 to start a bill or add to the current bill.
                 </p>
               </div>
             </div>
@@ -867,88 +1036,146 @@ export function PosShell() {
                 );
                 const canStart =
                   resource.status === "AVAILABLE" &&
-                  canStartTimedSession &&
+                  canUseResourceBoard &&
                   Boolean(service);
+                const startState = resourceStartState({
+                  hasShift: Boolean(bootstrap?.activeShift),
+                  hasService: Boolean(service),
+                  actionPending,
+                  currentBillLabel: selectedTab ? billLabel(selectedTab) : null,
+                });
+
+                if (resource.status === "AVAILABLE") {
+                  return (
+                    <button
+                      key={resource.id}
+                      aria-label={
+                        service
+                          ? `Start ${cashierServiceName(service)} on ${resource.name}`
+                          : `Start play on ${resource.name}`
+                      }
+                      className={`grid min-h-44 gap-3 rounded-lg border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed ${
+                        canStart
+                          ? "border-emerald-300 bg-emerald-50 hover:border-emerald-700"
+                          : "border-zinc-200 bg-zinc-50"
+                      }`}
+                      disabled={!canStart}
+                      onClick={() => startSession(resource)}
+                    >
+                      <ResourceCardHeader
+                        resource={resource}
+                        liveLine={null}
+                      />
+                      <span className="rounded-md bg-white/80 px-3 py-2 text-sm font-semibold text-emerald-950">
+                        {startState}
+                      </span>
+                      {service ? (
+                        <span className="text-sm text-zinc-700">
+                          {cashierServiceName(service)} -{" "}
+                          {formatPaise(service.pricingRule.ratePerMinute)}/min
+                        </span>
+                      ) : (
+                        <span className="text-sm text-red-700">Service missing</span>
+                      )}
+                    </button>
+                  );
+                }
 
                 return (
-                  <button
+                  <div
                     key={resource.id}
-                    aria-label={
-                      service
-                        ? `Start ${cashierServiceName(service)} on ${resource.name}`
-                        : `Start play on ${resource.name}`
-                    }
-                    className={`grid min-h-44 gap-3 rounded-lg border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed ${
-                      canStart
-                        ? "border-emerald-300 bg-emerald-50 hover:border-emerald-700"
-                        : resource.status === "MAINTENANCE"
-                          ? "border-red-200 bg-red-50"
-                          : "border-amber-200 bg-amber-50"
+                    className={`grid min-h-44 gap-3 rounded-lg border p-4 text-left ${
+                      resource.status === "MAINTENANCE"
+                        ? "border-red-200 bg-red-50"
+                        : "border-amber-200 bg-amber-50"
                     }`}
-                    disabled={!canStart}
-                    onClick={() => startSession(resource)}
                   >
-                    <span className="grid gap-2">
-                      <span>
-                        <span className="block text-lg font-semibold">
-                          {resource.name}
-                        </span>
-                        <span className="mt-1 flex items-center gap-1.5 text-sm text-zinc-600">
-                          {resource.kind === "POOL_TABLE" ? (
-                            <CircleDot className="h-4 w-4" />
-                          ) : (
-                            <Monitor className="h-4 w-4" />
-                          )}
-                          {resourceLabel(resource.kind)}
-                        </span>
-                      </span>
-                      <ResourceStatusBadge
-                        resource={resource}
-                        liveLine={resourceUse?.line ?? null}
-                      />
-                    </span>
-                    {resource.status === "AVAILABLE" ? (
-                      <span className="rounded-md bg-white/80 px-3 py-2 text-sm font-semibold text-emerald-950">
-                        {resourceStartState({
-                          hasShift: Boolean(bootstrap?.activeShift),
-                          hasTab: Boolean(selectedTabId),
-                          hasService: Boolean(service),
-                          actionPending,
-                        })}
-                      </span>
-                    ) : resourceUse ? (
-                      <span className="grid gap-1 rounded-md bg-white/80 px-3 py-2 text-sm text-zinc-800">
-                        <span className="flex items-center gap-1.5 font-semibold">
-                          <UserRound className="h-4 w-4" />
-                          {billLabel(resourceUse.tab)}
-                        </span>
-                        <span>
-                          {cashierLineDescription(resourceUse.line.descriptionSnapshot)} -{" "}
-                          {formatStatus(resourceUse.line.status)}
-                        </span>
-                        <span className="text-xs text-zinc-600">
-                          {elapsedLineLabel(resourceUse.line)}
-                        </span>
-                        <span className="text-xs text-zinc-600">
-                          {estimatedLine
-                            ? `Estimate ${formatPaise(estimatedLine.totalAmount)}`
-                            : "Select bill to see estimate"}
-                        </span>
-                      </span>
+                    <ResourceCardHeader
+                      resource={resource}
+                      liveLine={resourceUse?.line ?? null}
+                    />
+                    {resourceUse ? (
+                      <>
+                        <div className="grid gap-1 rounded-md bg-white/80 px-3 py-2 text-sm text-zinc-800">
+                          <span className="flex items-center gap-1.5 font-semibold">
+                            <UserRound className="h-4 w-4" />
+                            {billLabel(resourceUse.tab)}
+                          </span>
+                          <span>
+                            {cashierLineDescription(resourceUse.line.descriptionSnapshot)}{" "}
+                            - {statusLabel(resourceUse.line.status)}
+                          </span>
+                          <span className="text-xs text-zinc-600">
+                            {elapsedLineLabel(resourceUse.line)}
+                          </span>
+                          <span className="text-xs text-zinc-600">
+                            {estimatedLine
+                              ? `Estimate ${formatPaise(estimatedLine.totalAmount)}`
+                              : selectedTabId === resourceUse.tab.id
+                                ? "Estimate calculating"
+                                : "Open bill to see estimate"}
+                          </span>
+                        </div>
+                        <div className="grid gap-2">
+                          <Button
+                            className="min-h-11"
+                            disabled={actionPending}
+                            onClick={() => handleTabSelect(resourceUse.tab.id)}
+                            variant="secondary"
+                          >
+                            <UserRound className="h-4 w-4" />
+                            Open bill
+                          </Button>
+                          <div className="grid grid-cols-2 gap-2">
+                            {resourceUse.line.status === "PAUSED" ? (
+                              <Button
+                                className="min-h-11"
+                                disabled={actionPending}
+                                onClick={() => void resumeTimedLine(resourceUse.line)}
+                                variant="secondary"
+                              >
+                                <CirclePlay className="h-4 w-4" />
+                                Resume
+                              </Button>
+                            ) : (
+                              <Button
+                                className="min-h-11"
+                                disabled={actionPending}
+                                onClick={() => void pauseTimedLine(resourceUse.line)}
+                                variant="secondary"
+                              >
+                                <CirclePause className="h-4 w-4" />
+                                Pause
+                              </Button>
+                            )}
+                            <Button
+                              className={
+                                stopConfirmLineId === resourceUse.line.id
+                                  ? "min-h-11"
+                                  : "min-h-11 border-red-200 text-red-700 hover:bg-red-50"
+                              }
+                              disabled={actionPending}
+                              onClick={() => void stopTimedLine(resourceUse.line)}
+                              variant={
+                                stopConfirmLineId === resourceUse.line.id
+                                  ? "danger"
+                                  : "secondary"
+                              }
+                            >
+                              <Square className="h-4 w-4" />
+                              {stopConfirmLineId === resourceUse.line.id
+                                ? "Confirm stop"
+                                : "Stop"}
+                            </Button>
+                          </div>
+                        </div>
+                      </>
                     ) : (
                       <span className="rounded-md bg-white/80 px-3 py-2 text-sm font-medium text-amber-950">
                         Not available
                       </span>
                     )}
-                    {service ? (
-                      <span className="text-sm text-zinc-700">
-                        {cashierServiceName(service)} -{" "}
-                        {formatPaise(service.pricingRule.ratePerMinute)}/min
-                      </span>
-                    ) : (
-                      <span className="text-sm text-red-700">Service missing</span>
-                    )}
-                  </button>
+                  </div>
                 );
               })}
               {!loading && branchResources.length === 0 ? (
@@ -1004,7 +1231,7 @@ export function PosShell() {
                       </span>
                       <span className="flex items-center gap-2">
                         {liveTimedCount > 0 ? (
-                          <Badge tone="warning">{liveTimedCount} running</Badge>
+                          <Badge tone="warning">{liveTimedCount} active</Badge>
                         ) : null}
                         <Badge>{tab.status}</Badge>
                       </span>
@@ -1036,7 +1263,7 @@ export function PosShell() {
                       </p>
                       <p className="mt-1 text-xs text-emerald-800">
                         {activeTimedLines.length > 0
-                          ? "Games are still running"
+                          ? "Stop running games before checkout."
                           : "Ready for checkout when payment matches"}
                       </p>
                     </div>
@@ -1057,9 +1284,9 @@ export function PosShell() {
                       Running games
                     </p>
                     {activeTimedLines.length > 0 ? (
-                      <Badge tone="warning">{activeTimedLines.length} running</Badge>
+                      <Badge tone="warning">{activeTimedLines.length} active</Badge>
                     ) : (
-                      <Badge>None running</Badge>
+                      <Badge>No active games</Badge>
                     )}
                   </div>
                   {timedLines.map((line) => {
@@ -1083,7 +1310,7 @@ export function PosShell() {
                                 {cashierLineDescription(line.descriptionSnapshot)}
                               </span>
                               <Badge tone={timedLineBadgeTone(line.status)}>
-                                {formatStatus(line.status)}
+                                {statusLabel(line.status)}
                               </Badge>
                             </span>
                             <span className="mt-1 block text-xs text-zinc-600">
@@ -1100,12 +1327,7 @@ export function PosShell() {
                               className="min-h-11 px-3"
                               variant="secondary"
                               onClick={() => {
-                                setMovingTimedLineId("");
-                                void postJson(
-                                  "/api/service-sessions/pause",
-                                  { tabTimedLineId: line.id },
-                                  { successMessage: "Game paused." },
-                                );
+                                void pauseTimedLine(line);
                               }}
                               disabled={actionPending || line.status !== "RUNNING"}
                             >
@@ -1119,12 +1341,7 @@ export function PosShell() {
                               className="min-h-11 px-3"
                               variant="secondary"
                               onClick={() => {
-                                setMovingTimedLineId("");
-                                void postJson(
-                                  "/api/service-sessions/resume",
-                                  { tabTimedLineId: line.id },
-                                  { successMessage: "Game resumed." },
-                                );
+                                void resumeTimedLine(line);
                               }}
                               disabled={actionPending || line.status !== "PAUSED"}
                             >
@@ -1135,15 +1352,18 @@ export function PosShell() {
                               aria-label={`Stop ${line.descriptionSnapshot} on ${
                                 line.resource?.name ?? "no resource"
                               }`}
-                              className="min-h-11 border-red-200 px-3 text-red-700 hover:bg-red-50"
-                              variant="secondary"
+                              className={
+                                stopConfirmLineId === line.id
+                                  ? "min-h-11 px-3"
+                                  : "min-h-11 border-red-200 px-3 text-red-700 hover:bg-red-50"
+                              }
+                              variant={
+                                stopConfirmLineId === line.id
+                                  ? "danger"
+                                  : "secondary"
+                              }
                               onClick={() => {
-                                setMovingTimedLineId("");
-                                void postJson(
-                                  "/api/service-sessions/stop",
-                                  { tabTimedLineId: line.id },
-                                  { successMessage: "Game stopped." },
-                                );
+                                void stopTimedLine(line);
                               }}
                               disabled={
                                 actionPending ||
@@ -1151,30 +1371,33 @@ export function PosShell() {
                               }
                             >
                               <Square className="h-4 w-4" />
-                              Stop
+                              {stopConfirmLineId === line.id ? "Confirm stop" : "Stop"}
                             </Button>
-                            <Button
-                              aria-label={`Move ${line.descriptionSnapshot} from ${
-                                line.resource?.name ?? "no resource"
-                              }`}
-                              className="min-h-11 px-3"
-                              variant="ghost"
-                              onClick={() =>
-                                setMovingTimedLineId((current) =>
-                                  current === line.id ? "" : line.id,
-                                )
-                              }
-                              disabled={actionPending || line.status !== "RUNNING"}
-                            >
-                              <MoveRight className="h-4 w-4" />
-                              Move
-                            </Button>
+                            {line.status === "RUNNING" ? (
+                              <Button
+                                aria-label={`Move game from ${
+                                  line.resource?.name ?? "no resource"
+                                }`}
+                                className="min-h-11 px-3"
+                                variant="ghost"
+                                onClick={() => {
+                                  setStopConfirmLineId("");
+                                  setMovingTimedLineId((current) =>
+                                    current === line.id ? "" : line.id,
+                                  );
+                                }}
+                                disabled={actionPending}
+                              >
+                                <MoveRight className="h-4 w-4" />
+                                Move game
+                              </Button>
+                            ) : null}
                           </div>
                         </div>
                         {isMoving ? (
                           <div className="mt-3 rounded-md bg-zinc-50 p-3">
                             <p className="mb-2 text-xs font-medium text-zinc-700">
-                              Move this session to:
+                              Move this game to:
                             </p>
                             <div className="grid gap-2 sm:grid-cols-2">
                               {availableMoveTargets.map((resource) => (
@@ -1321,9 +1544,10 @@ export function PosShell() {
                       </>
                     ) : null}
                     {quote?.hasActiveTimedLines ? (
-                      <p className="mt-2 text-xs font-medium text-amber-900">
+                      <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+                        <AlertTriangle className="h-4 w-4" />
                         Stop running games before checkout.
-                      </p>
+                      </div>
                     ) : null}
                   </div>
                   <div className="grid gap-2">
@@ -1473,6 +1697,31 @@ export function PosShell() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function ResourceCardHeader({
+  resource,
+  liveLine,
+}: {
+  resource: Resource;
+  liveLine: TimedLine | null;
+}) {
+  return (
+    <span className="grid gap-2">
+      <span>
+        <span className="block text-lg font-semibold">{resource.name}</span>
+        <span className="mt-1 flex items-center gap-1.5 text-sm text-zinc-600">
+          {resource.kind === "POOL_TABLE" ? (
+            <CircleDot className="h-4 w-4" />
+          ) : (
+            <Monitor className="h-4 w-4" />
+          )}
+          {resourceLabel(resource.kind)}
+        </span>
+      </span>
+      <ResourceStatusBadge resource={resource} liveLine={liveLine} />
+    </span>
   );
 }
 
@@ -1698,8 +1947,20 @@ function timedLineBadgeTone(
   return "neutral";
 }
 
-function formatStatus(status: string): string {
-  return status.replaceAll("_", " ");
+function statusLabel(status: TimedLine["status"]): string {
+  if (status === "RUNNING") {
+    return "Running";
+  }
+  if (status === "PAUSED") {
+    return "Paused";
+  }
+  if (status === "STOPPED") {
+    return "Stopped";
+  }
+  if (status === "CLOSED") {
+    return "Closed";
+  }
+  return "Voided";
 }
 
 function findServiceForResource(
@@ -1736,14 +1997,14 @@ function resourceKindForTimedLine(line: TimedLine): Resource["kind"] | null {
 
 function resourceStartState({
   hasShift,
-  hasTab,
   hasService,
   actionPending,
+  currentBillLabel,
 }: {
   hasShift: boolean;
-  hasTab: boolean;
   hasService: boolean;
   actionPending: boolean;
+  currentBillLabel: string | null;
 }): string {
   if (actionPending) {
     return "Posting";
@@ -1751,11 +2012,8 @@ function resourceStartState({
   if (!hasShift) {
     return "Open shift first";
   }
-  if (!hasTab) {
-    return "Select bill";
-  }
   if (!hasService) {
     return "Service missing";
   }
-  return "Tap to start";
+  return currentBillLabel ? `Add to ${currentBillLabel}` : "Tap to start";
 }

@@ -77,4 +77,75 @@ describe("pricing and GST invoice draft", () => {
       invoiceSeriesSnapshot: "GXA012526",
     });
   });
+
+  it("documents line-level GST rounding for pool plus PS5 plus chips", () => {
+    const draft = buildInvoiceDraft({
+      invoiceSeriesSnapshot: "GXA012526",
+      intraState: true,
+      timedLines: [
+        timedLine("pool-line", "Pool table timed play"),
+        timedLine("ps5-line", "PS5 console timed play"),
+      ],
+      retailLines: [
+        {
+          id: "chips-line",
+          description: "Chips pack",
+          hsnSac: "2106",
+          gstRatePercent: 18,
+          unitPrice: 3000,
+          quantity: 1,
+        },
+      ],
+    });
+
+    // GST is split per immutable invoice line, then summed. That keeps line
+    // snapshots auditable, so CGST/SGST can differ by one paise on odd tax.
+    expect(draft).toMatchObject({
+      taxableValue: 11016,
+      cgstAmount: 991,
+      sgstAmount: 993,
+      igstAmount: 0,
+      totalAmount: 13000,
+    });
+    expect(draft.cgstAmount + draft.sgstAmount + draft.igstAmount).toBe(1984);
+  });
+
+  it("stores invoice discount snapshots and changes final payable amount", () => {
+    const draft = buildInvoiceDraft({
+      invoiceSeriesSnapshot: "GXA012526",
+      intraState: true,
+      timedLines: [timedLine("pool-line", "Pool table timed play")],
+      retailLines: [],
+      discountAmount: 500,
+    });
+
+    expect(draft.discountAmount).toBe(500);
+    expect(draft.totalAmount).toBe(4500);
+    expect(draft.lines[0]).toMatchObject({
+      totalAmount: 4500,
+      billableMinutes: 10,
+    });
+  });
 });
+
+function timedLine(id: string, description: string) {
+  return {
+    id,
+    description,
+    hsnSac: "9996",
+    gstRatePercent: 18,
+    ratePerMinute: 500,
+    minimumBillableMinutes: 10,
+    roundUpToMinutes: 5,
+    events: [
+      {
+        eventType: "STARTED" as const,
+        occurredAt: new Date("2026-06-07T10:00:00Z"),
+      },
+      {
+        eventType: "STOPPED" as const,
+        occurredAt: new Date("2026-06-07T10:10:00Z"),
+      },
+    ],
+  };
+}

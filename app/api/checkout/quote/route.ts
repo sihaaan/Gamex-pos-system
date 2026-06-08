@@ -5,13 +5,14 @@ import { compactFinancialYear } from "@/lib/gst/invoice-number";
 import { AppError, errorResponse } from "@/lib/http";
 import { assertLegalEntityScope } from "@/lib/permissions/tenant";
 import { prisma } from "@/lib/prisma";
-import { cuidSchema } from "@/lib/validation/common";
+import { cuidSchema, paiseSchema } from "@/lib/validation/common";
 
 export async function GET(request: Request): Promise<NextResponse> {
   try {
     const auth = await requireAuth();
     const url = new URL(request.url);
     const tabId = cuidSchema.parse(url.searchParams.get("tabId"));
+    const discountAmount = parseOptionalPaise(url.searchParams.get("discountAmount"));
 
     const tab = await prisma.tab.findFirst({
       where: { id: tabId, legalEntityId: auth.legalEntityId },
@@ -90,6 +91,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           quantity: line.quantity,
           discountAmount: line.discountAmount,
         })),
+      discountAmount,
       invoiceSeriesSnapshot: invoiceSeries.prefix,
       intraState: tab.branch.stateCode === tab.legalEntity.stateCode,
       now,
@@ -98,6 +100,10 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({
       quote: {
         ...draft,
+        grossAmount: draft.totalAmount + draft.discountAmount,
+        managerDiscountLimitPercent: Number(
+          process.env.MANAGER_DISCOUNT_LIMIT_PERCENT ?? "10",
+        ),
         serverNow: now.toISOString(),
         hasActiveTimedLines: tab.timedLines.some(
           (line) => line.status === "RUNNING" || line.status === "PAUSED",
@@ -107,6 +113,13 @@ export async function GET(request: Request): Promise<NextResponse> {
   } catch (error) {
     return errorResponse(error);
   }
+}
+
+function parseOptionalPaise(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return paiseSchema.parse(Number(value));
 }
 
 function readNumber(record: object, key: string): number | undefined {

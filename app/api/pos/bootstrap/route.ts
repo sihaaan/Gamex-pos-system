@@ -62,6 +62,9 @@ export async function GET(): Promise<NextResponse> {
       services,
       products,
       activeShift,
+      managerDiscountLimitPercent: Number(
+        process.env.MANAGER_DISCOUNT_LIMIT_PERCENT ?? "10",
+      ),
     });
   } catch (error) {
     return errorResponse(error);

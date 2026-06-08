@@ -131,10 +131,7 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
                 <tr key={line.id} className="border-b border-zinc-100">
                   <td className="py-3 pr-3 align-top">
                     <p className="font-medium text-zinc-950">
-                      {line.description}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {line.pricingRuleUsed} - {line.invoiceSeriesSnapshot}
+                      {invoiceLineDisplayName(line)}
                     </p>
                   </td>
                   <td className="px-3 py-3 align-top">{line.hsnSac}</td>
@@ -232,6 +229,25 @@ function formatPercent(value: unknown): string {
     return "0%";
   }
   return `${numericValue.toFixed(Number.isInteger(numericValue) ? 0 : 2)}%`;
+}
+
+function invoiceLineDisplayName(line: {
+  lineKind: string;
+  description: string;
+  billableMinutes: number | null;
+}): string {
+  if (line.lineKind !== "SERVICE") {
+    return line.description;
+  }
+
+  const normalized = line.description.toLowerCase();
+  const serviceName = normalized.includes("pool")
+    ? "Pool play"
+    : normalized.includes("ps5") || normalized.includes("console")
+      ? "PS5 play"
+      : line.description;
+  const minutes = line.billableMinutes ?? 0;
+  return minutes > 0 ? `${serviceName} - ${minutes} min` : serviceName;
 }
 
 function tenderLabel(tenderType: string): string {

@@ -42,6 +42,7 @@ type Bootstrap = {
   services: Service[];
   products: Product[];
   activeShift: OperatorShift | null;
+  managerDiscountLimitPercent: number;
 };
 
 type Branch = { id: string; name: string; code: string };
@@ -142,12 +143,14 @@ type NormalizedPaymentDraft = {
 };
 type CheckoutQuote = {
   lines: InvoiceLine[];
+  grossAmount: number;
   taxableValue: number;
   cgstAmount: number;
   sgstAmount: number;
   igstAmount: number;
   discountAmount: number;
   totalAmount: number;
+  managerDiscountLimitPercent: number;
   hasActiveTimedLines: boolean;
   serverNow: string;
 };
@@ -185,6 +188,7 @@ type StartPrompt = {
   resource: Resource;
   suggestedLabel: string;
 };
+type DiscountType = "AMOUNT" | "PERCENT";
 
 export function PosShell() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
@@ -195,6 +199,13 @@ export function PosShell() {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [startPrompt, setStartPrompt] = useState<StartPrompt | null>(null);
   const [startBillLabel, setStartBillLabel] = useState("");
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discountType, setDiscountType] = useState<DiscountType>("AMOUNT");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
+  const [managerEmailOrCode, setManagerEmailOrCode] = useState("");
+  const [managerPassword, setManagerPassword] = useState("");
+  const [managerOverrideId, setManagerOverrideId] = useState<string | null>(null);
   const [paymentDrafts, setPaymentDrafts] = useState<PaymentDraft[]>([
     createPaymentDraft("payment-1"),
   ]);
@@ -223,6 +234,16 @@ export function PosShell() {
     ]);
     paymentsEditedRef.current = false;
   }, []);
+
+  function resetDiscountDraft() {
+    setDiscountOpen(false);
+    setDiscountType("AMOUNT");
+    setDiscountValue("");
+    setDiscountReason("");
+    setManagerEmailOrCode("");
+    setManagerPassword("");
+    setManagerOverrideId(null);
+  }
 
   async function refresh(options?: { branchId?: string; preferredTabId?: string }) {
     setLoading(true);
@@ -271,12 +292,15 @@ export function PosShell() {
     setLoading(false);
   }
 
-  const refreshQuote = useCallback(async (tabId: string) => {
+  const refreshQuote = useCallback(async (tabId: string, discountAmount = 0) => {
     setQuoteLoading(true);
-    const response = await fetch(
-      `/api/checkout/quote?tabId=${encodeURIComponent(tabId)}`,
-      { cache: "no-store" },
-    );
+    const query = new URLSearchParams({ tabId });
+    if (discountAmount > 0) {
+      query.set("discountAmount", String(discountAmount));
+    }
+    const response = await fetch(`/api/checkout/quote?${query.toString()}`, {
+      cache: "no-store",
+    });
     setQuoteLoading(false);
 
     if (!response.ok) {
@@ -311,16 +335,29 @@ export function PosShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const quoteGrossAmount = quote?.grossAmount ?? 0;
+  const requestedDiscountAmount = useMemo(
+    () =>
+      calculateDiscountAmount({
+        discountType,
+        discountValue,
+        grossAmount: quoteGrossAmount,
+      }),
+    [discountType, discountValue, quoteGrossAmount],
+  );
+
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       if (!selectedTabId) {
         setQuote(null);
         return;
       }
-      refreshQuote(selectedTabId).catch(() => setQuote(null));
+      refreshQuote(selectedTabId, requestedDiscountAmount).catch(() =>
+        setQuote(null),
+      );
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [refreshQuote, selectedTabId, tabs]);
+  }, [refreshQuote, requestedDiscountAmount, selectedTabId, tabs]);
 
   const selectedTab = tabs.find((tab) => tab.id === selectedTabId) ?? null;
   const isStaff = bootstrap?.user.role === "STAFF";
@@ -359,10 +396,28 @@ export function PosShell() {
   const paymentBalance = quote
     ? quote.totalAmount - paymentSummary.totalAmount
     : 0;
+  const discountLimitPercent =
+    quote?.managerDiscountLimitPercent ??
+    bootstrap?.managerDiscountLimitPercent ??
+    10;
+  const requestedDiscountPercent =
+    quoteGrossAmount > 0
+      ? (requestedDiscountAmount / quoteGrossAmount) * 100
+      : 0;
+  const discountReasonMissing =
+    requestedDiscountAmount > 0 && discountReason.trim().length === 0;
+  const discountRequiresManagerApproval = Boolean(
+    isStaff &&
+      requestedDiscountAmount > 0 &&
+      requestedDiscountPercent > discountLimitPercent &&
+      !managerOverrideId,
+  );
   const canPostCheckout = Boolean(
     quote &&
       quote.totalAmount > 0 &&
       !quote.hasActiveTimedLines &&
+      !discountReasonMissing &&
+      !discountRequiresManagerApproval &&
       paymentSummary.payments.length > 0 &&
       !paymentSummary.hasInvalidAmount &&
       paymentBalance === 0 &&
@@ -629,7 +684,60 @@ export function PosShell() {
       { offlineDraft: true, successMessage: "Snack or drink added." },
     );
     if (posted) {
-      await refreshQuote(tabId);
+      await refreshQuote(tabId, requestedDiscountAmount);
+    }
+  }
+
+  async function approveDiscountOverride() {
+    if (!selectedTabId || !quote) {
+      setMessage("Select a bill before requesting approval.");
+      return;
+    }
+    if (requestedDiscountAmount <= 0) {
+      setMessage("Enter a discount before requesting approval.");
+      return;
+    }
+    if (!discountReason.trim()) {
+      setMessage("Enter a discount reason before requesting approval.");
+      return;
+    }
+    if (!managerEmailOrCode.trim() || !managerPassword) {
+      setMessage("Enter manager email and password.");
+      return;
+    }
+    if (!navigator.onLine) {
+      setMessage("Reconnect before requesting manager approval.");
+      return;
+    }
+
+    setActionPending(true);
+    try {
+      const response = await fetch("/api/manager-overrides/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "HIGH_DISCOUNT",
+          targetType: "tab",
+          targetId: selectedTabId,
+          branchId: currentBranchId,
+          reason: discountReason.trim(),
+          managerEmailOrCode,
+          managerPassword,
+        }),
+      });
+      const payload = (await response.json()) as {
+        managerOverrideId?: string;
+        error?: { message?: string };
+      };
+      if (!response.ok || !payload.managerOverrideId) {
+        setMessage(payload.error?.message ?? "Manager approval failed.");
+        return;
+      }
+      setManagerOverrideId(payload.managerOverrideId);
+      setManagerPassword("");
+      setMessage("Manager approved this discount.");
+    } finally {
+      setActionPending(false);
     }
   }
 
@@ -640,6 +748,14 @@ export function PosShell() {
     }
     if (quote?.hasActiveTimedLines) {
       setMessage("Stop running games before checkout.");
+      return;
+    }
+    if (discountReasonMissing) {
+      setMessage("Enter a discount reason before checkout.");
+      return;
+    }
+    if (discountRequiresManagerApproval) {
+      setMessage("Manager approval is required for this discount.");
       return;
     }
     if (!quote) {
@@ -665,12 +781,17 @@ export function PosShell() {
       {
         tabId: selectedTabId,
         payments: paymentSummary.payments,
+        discountAmount: requestedDiscountAmount || undefined,
+        discountReason:
+          requestedDiscountAmount > 0 ? discountReason.trim() : undefined,
+        managerOverrideId: managerOverrideId ?? undefined,
       },
       { successMessage: "Checkout posted." },
     );
     if (payload?.invoice) {
       setLastPostedInvoice(payload.invoice);
       resetPaymentDrafts();
+      resetDiscountDraft();
       setQuote(null);
       setMovingTimedLineId("");
       setStopConfirmLineId("");
@@ -684,6 +805,7 @@ export function PosShell() {
     setStartPrompt(null);
     setStartBillLabel("");
     resetPaymentDrafts();
+    resetDiscountDraft();
     setQuote(null);
   }
 
@@ -695,6 +817,7 @@ export function PosShell() {
     setStartPrompt(null);
     setStartBillLabel("");
     resetPaymentDrafts();
+    resetDiscountDraft();
     setQuote(null);
     setCloseShiftArmed(false);
     setMessage(null);
@@ -1514,10 +1637,33 @@ export function PosShell() {
                     </div>
                     {quote ? (
                       <>
-                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-zinc-600">
-                          <span>CGST {formatPaise(quote.cgstAmount)}</span>
-                          <span>SGST {formatPaise(quote.sgstAmount)}</span>
-                          <span>IGST {formatPaise(quote.igstAmount)}</span>
+                        <div className="mt-3 grid gap-1.5 text-sm">
+                          <BreakdownRow
+                            label="Gross amount"
+                            value={quote.grossAmount}
+                          />
+                          <BreakdownRow
+                            label="Discount"
+                            value={quote.discountAmount}
+                            tone="discount"
+                          />
+                          <BreakdownRow
+                            label="Taxable value"
+                            value={quote.taxableValue}
+                          />
+                          <BreakdownRow
+                            label="GST"
+                            value={
+                              quote.cgstAmount +
+                              quote.sgstAmount +
+                              quote.igstAmount
+                            }
+                          />
+                          <BreakdownRow
+                            label="Final bill"
+                            value={quote.totalAmount}
+                            strong
+                          />
                         </div>
                         <div className="mt-3 grid gap-1.5">
                           {quote.lines.map((line, index) => (
@@ -1547,6 +1693,126 @@ export function PosShell() {
                       <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
                         <AlertTriangle className="h-4 w-4" />
                         Stop running games before checkout.
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold">Discount</p>
+                        <p className="text-xs text-zinc-600">
+                          Reason is required. High discounts need manager approval.
+                        </p>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setDiscountOpen((current) => !current)}
+                        disabled={!quote || actionPending}
+                      >
+                        {discountOpen ? "Hide discount" : "Discount"}
+                      </Button>
+                    </div>
+                    {discountOpen ? (
+                      <div className="grid gap-3">
+                        <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
+                          <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                            Discount type
+                            <select
+                              className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
+                              disabled={actionPending}
+                              value={discountType}
+                              onChange={(event) => {
+                                setDiscountType(event.target.value as DiscountType);
+                                setManagerOverrideId(null);
+                              }}
+                            >
+                              <option value="AMOUNT">Amount</option>
+                              <option value="PERCENT">Percent</option>
+                            </select>
+                          </label>
+                          <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                            Value
+                            <Input
+                              className="min-h-11"
+                              disabled={actionPending}
+                              inputMode="decimal"
+                              placeholder={discountType === "AMOUNT" ? "50" : "10"}
+                              value={discountValue}
+                              onChange={(event) => {
+                                setDiscountValue(event.target.value);
+                                setManagerOverrideId(null);
+                              }}
+                            />
+                          </label>
+                        </div>
+                        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                          Discount reason
+                          <Input
+                            disabled={actionPending}
+                            placeholder="Reason for discount"
+                            value={discountReason}
+                            onChange={(event) => {
+                              setDiscountReason(event.target.value);
+                              setManagerOverrideId(null);
+                            }}
+                          />
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 rounded-md bg-zinc-50 p-3 text-sm">
+                          <span className="text-zinc-600">Discount</span>
+                          <span className="text-right font-semibold">
+                            {formatPaise(requestedDiscountAmount)}
+                          </span>
+                          <span className="text-zinc-600">Staff limit</span>
+                          <span className="text-right font-semibold">
+                            {discountLimitPercent}%
+                          </span>
+                        </div>
+                        {discountReasonMissing ? (
+                          <p className="text-xs font-medium text-amber-900">
+                            Enter a discount reason before checkout.
+                          </p>
+                        ) : null}
+                        {discountRequiresManagerApproval ? (
+                          <div className="grid gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+                            <p className="text-sm font-semibold text-amber-950">
+                              Manager approval required
+                            </p>
+                            <label className="grid gap-1 text-xs font-medium text-amber-950">
+                              Manager email
+                              <Input
+                                autoComplete="username"
+                                disabled={actionPending}
+                                inputMode="email"
+                                value={managerEmailOrCode}
+                                onChange={(event) =>
+                                  setManagerEmailOrCode(event.target.value)
+                                }
+                              />
+                            </label>
+                            <label className="grid gap-1 text-xs font-medium text-amber-950">
+                              Manager password
+                              <Input
+                                autoComplete="current-password"
+                                disabled={actionPending}
+                                type="password"
+                                value={managerPassword}
+                                onChange={(event) =>
+                                  setManagerPassword(event.target.value)
+                                }
+                              />
+                            </label>
+                            <Button
+                              disabled={actionPending}
+                              onClick={approveDiscountOverride}
+                              variant="secondary"
+                            >
+                              Approve discount
+                            </Button>
+                          </div>
+                        ) : null}
+                        {managerOverrideId ? (
+                          <Badge tone="success">Manager approved</Badge>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -1697,6 +1963,32 @@ export function PosShell() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function BreakdownRow({
+  label,
+  value,
+  strong = false,
+  tone,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+  tone?: "discount";
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 ${
+        strong ? "border-t border-zinc-200 pt-2 text-base font-semibold" : ""
+      }`}
+    >
+      <span className="text-zinc-600">{label}</span>
+      <span className={strong ? "font-semibold" : "font-medium"}>
+        {tone === "discount" && value > 0 ? "-" : ""}
+        {formatPaise(value)}
+      </span>
+    </div>
   );
 }
 
@@ -1916,6 +2208,28 @@ function parseRupeeInputToPaise(value: string): number | null {
 
 function paiseToRupeeInput(amount: number): string {
   return (amount / 100).toFixed(2);
+}
+
+function calculateDiscountAmount({
+  discountType,
+  discountValue,
+  grossAmount,
+}: {
+  discountType: DiscountType;
+  discountValue: string;
+  grossAmount: number;
+}): number {
+  const numericValue = Number(discountValue.trim());
+  if (!Number.isFinite(numericValue) || numericValue <= 0 || grossAmount <= 0) {
+    return 0;
+  }
+
+  const amount =
+    discountType === "PERCENT"
+      ? Math.round((grossAmount * Math.min(numericValue, 100)) / 100)
+      : Math.round(numericValue * 100);
+
+  return Math.min(Math.max(amount, 0), grossAmount);
 }
 
 function paymentBalanceLabel(balance: number): string {

@@ -78,6 +78,29 @@ export const checkoutSchema = z.object({
   payments: z.array(paymentInputSchema).min(1).max(5),
   discountAmount: paiseSchema.optional(),
   discountReason: z.string().trim().max(240).optional(),
+  managerOverrideId: cuidSchema.optional(),
+});
+
+export const managerOverrideApproveSchema = z.object({
+  action: z.enum([
+    "VOID_TAB",
+    "VOID_INVOICE",
+    "HIGH_DISCOUNT",
+    "PRICE_OVERRIDE",
+    "RETROACTIVE_SESSION_EDIT",
+    "REFUND",
+    "CREDIT_NOTE",
+    "STOCK_ADJUSTMENT",
+    "REOPEN_CLOSED_TAB",
+    "REOPEN_OR_ADJUST_SHIFT",
+    "CHANGE_TAX_PRICING_CONFIG",
+  ]),
+  targetType: z.string().trim().min(2).max(80),
+  targetId: z.string().trim().min(1).max(80).optional(),
+  branchId: cuidSchema.optional(),
+  reason: z.string().trim().min(3).max(500),
+  managerEmailOrCode: z.string().trim().min(3).max(255),
+  managerPassword: z.string().min(8).max(200),
 });
 
 export const refundSchema = z.object({

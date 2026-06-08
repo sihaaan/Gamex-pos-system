@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/session";
 import { buildInvoiceDraft } from "@/lib/billing/checkout";
+import { assertDiscountCheckoutRules } from "@/lib/discounts/policy";
 import { checkoutJournalLines } from "@/lib/journal/entries";
 import { compactFinancialYear, formatInvoiceNumber } from "@/lib/gst/invoice-number";
 import { AppError, errorResponse, parseJson } from "@/lib/http";
 import {
-  requireManagerOverride,
   requirePermission,
 } from "@/lib/permissions/policy";
 import { assertLegalEntityScope } from "@/lib/permissions/tenant";
@@ -129,6 +129,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       intraState: tab.branch.stateCode === tab.legalEntity.stateCode,
       now,
     });
+    const grossBeforeDiscount = draft.totalAmount + draft.discountAmount;
+    if ((input.discountAmount ?? 0) > grossBeforeDiscount) {
+      throw new AppError(
+        400,
+        "DISCOUNT_EXCEEDS_BILL",
+        "Discount cannot be greater than the bill total.",
+      );
+    }
 
     const paymentTotal = input.payments.reduce(
       (total, payment) => total + payment.amount,
@@ -145,17 +153,56 @@ export async function POST(request: Request): Promise<NextResponse> {
     const discountLimitPercent = Number(
       process.env.MANAGER_DISCOUNT_LIMIT_PERCENT ?? "10",
     );
-    const grossBeforeDiscount = draft.totalAmount + draft.discountAmount;
-    if (
-      draft.discountAmount > 0 &&
-      grossBeforeDiscount > 0 &&
-      (draft.discountAmount / grossBeforeDiscount) * 100 > discountLimitPercent
-    ) {
-      requireManagerOverride(auth.role, "HIGH_DISCOUNT");
+    const { highDiscountRequiresOverride } = assertDiscountCheckoutRules({
+      role: auth.role,
+      discountAmount: draft.discountAmount,
+      grossAmount: grossBeforeDiscount,
+      discountReason: input.discountReason,
+      managerOverrideId: input.managerOverrideId,
+      limitPercent: discountLimitPercent,
+    });
+    const managerOverride = input.managerOverrideId
+      ? await prisma.managerOverride.findFirst({
+          where: {
+            id: input.managerOverrideId,
+            legalEntityId: auth.legalEntityId,
+            branchId: tab.branchId,
+            action: "HIGH_DISCOUNT",
+            status: "APPROVED",
+            targetType: "tab",
+            targetId: tab.id,
+          },
+        })
+      : null;
+
+    if (input.managerOverrideId && !managerOverride) {
+      throw new AppError(
+        403,
+        "MANAGER_OVERRIDE_INVALID",
+        "Manager approval was not found for this checkout.",
+      );
+    }
+
+    if (highDiscountRequiresOverride && managerOverride) {
+      assertUsableManagerOverride({
+        managerOverride,
+        staffUserId: auth.userId,
+      });
     }
 
     const result = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${invoiceSeries.id}))`;
+      if (managerOverride) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${managerOverride.id}))`;
+        const lockedOverride = await tx.managerOverride.findUniqueOrThrow({
+          where: { id: managerOverride.id },
+        });
+        assertUsableManagerOverride({
+          managerOverride: lockedOverride,
+          staffUserId: auth.userId,
+        });
+      }
+
       const lockedSeries = await tx.invoiceSeries.findUniqueOrThrow({
         where: { id: invoiceSeries.id },
       });
@@ -211,6 +258,21 @@ export async function POST(request: Request): Promise<NextResponse> {
         },
         include: { lines: true },
       });
+
+      if (managerOverride) {
+        const metadata = readJsonRecord(managerOverride.metadata);
+        await tx.managerOverride.update({
+          where: { id: managerOverride.id },
+          data: {
+            metadata: {
+              ...metadata,
+              consumedAt: new Date().toISOString(),
+              consumedByCheckoutId: invoice.id,
+              consumedInvoiceNumber: invoiceNumber,
+            },
+          },
+        });
+      }
 
       await tx.invoiceSeries.update({
         where: { id: lockedSeries.id },
@@ -328,6 +390,27 @@ export async function POST(request: Request): Promise<NextResponse> {
         },
       });
 
+      if (draft.discountAmount > 0) {
+        await tx.auditLog.create({
+          data: {
+            legalEntityId: auth.legalEntityId,
+            branchId: tab.branchId,
+            operatorShiftId: activeShift.id,
+            actorUserId: auth.userId,
+            action: "DISCOUNT_APPLIED",
+            targetType: "gst_invoice",
+            targetId: invoice.id,
+            reason: input.discountReason,
+            afterJson: {
+              grossAmount: grossBeforeDiscount,
+              discountAmount: draft.discountAmount,
+              finalAmount: draft.totalAmount,
+              managerOverrideId: managerOverride?.id ?? null,
+            },
+          },
+        });
+      }
+
       await tx.auditLog.create({
         data: {
           legalEntityId: auth.legalEntityId,
@@ -341,6 +424,8 @@ export async function POST(request: Request): Promise<NextResponse> {
             invoiceNumber,
             totalAmount: invoice.totalAmount,
             paymentCount: input.payments.length,
+            discountAmount: draft.discountAmount,
+            managerOverrideId: managerOverride?.id ?? null,
           },
         },
       });
@@ -360,4 +445,41 @@ function readNumber(record: object, key: string): number | undefined {
   }
   const value = (record as Record<string, unknown>)[key];
   return typeof value === "number" ? value : undefined;
+}
+
+function assertUsableManagerOverride(params: {
+  managerOverride: { metadata: unknown } | null;
+  staffUserId: string;
+}): void {
+  if (!params.managerOverride) {
+    throw new AppError(
+      403,
+      "MANAGER_OVERRIDE_REQUIRED",
+      "This discount requires manager approval.",
+    );
+  }
+
+  const metadata = readJsonRecord(params.managerOverride.metadata);
+  if (metadata.staffUserId !== params.staffUserId) {
+    throw new AppError(
+      403,
+      "MANAGER_OVERRIDE_STAFF_MISMATCH",
+      "Manager approval does not belong to this staff checkout.",
+    );
+  }
+
+  if (metadata.consumedAt) {
+    throw new AppError(
+      403,
+      "MANAGER_OVERRIDE_ALREADY_USED",
+      "Manager approval has already been used.",
+    );
+  }
+}
+
+function readJsonRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
 }

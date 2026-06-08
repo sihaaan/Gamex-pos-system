@@ -3,6 +3,7 @@ import {
   compactBillStats,
   staffBillStatus,
   staffInvoiceLineLabel,
+  staffPaymentStatusLabel,
   staffServiceName,
 } from "@/lib/pos/display";
 
@@ -62,6 +63,34 @@ describe("POS staff display helpers", () => {
         quantity: 1,
       }),
     ).toBe("Chips pack x1");
+  });
+
+  it("uses one clear payment state", () => {
+    const formatAmount = (amount: number) => `INR ${amount / 100}`;
+
+    expect(
+      staffPaymentStatusLabel({
+        paymentTotal: 12500,
+        paymentBalance: 0,
+        formatAmount,
+      }),
+    ).toBe("Payment matched INR 125");
+
+    expect(
+      staffPaymentStatusLabel({
+        paymentTotal: 10000,
+        paymentBalance: 2500,
+        formatAmount,
+      }),
+    ).toBe("Remaining INR 25");
+
+    expect(
+      staffPaymentStatusLabel({
+        paymentTotal: 15000,
+        paymentBalance: -500,
+        formatAmount,
+      }),
+    ).toBe("Overpaid INR 5");
   });
 
   it("hides timed service catalog wording from POS service names", () => {

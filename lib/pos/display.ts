@@ -42,6 +42,22 @@ export function staffInvoiceLineLabel(line: StaffInvoiceLineDisplay): string {
   return `${line.description} x${line.quantity ?? 1}`;
 }
 
+export function staffPaymentStatusLabel(params: {
+  paymentTotal: number;
+  paymentBalance: number;
+  formatAmount: (amount: number) => string;
+}): string {
+  if (params.paymentBalance === 0) {
+    return `Payment matched ${params.formatAmount(params.paymentTotal)}`;
+  }
+
+  if (params.paymentBalance > 0) {
+    return `Remaining ${params.formatAmount(params.paymentBalance)}`;
+  }
+
+  return `Overpaid ${params.formatAmount(Math.abs(params.paymentBalance))}`;
+}
+
 export function staffServiceName(description: string): string {
   const normalized = description.toLowerCase();
   if (normalized.includes("pool")) {

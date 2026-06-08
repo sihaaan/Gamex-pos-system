@@ -38,6 +38,7 @@ import {
   compactBillStats,
   staffBillStatus,
   staffInvoiceLineLabel,
+  staffPaymentStatusLabel,
   staffServiceName,
 } from "@/lib/pos/display";
 import { formatPaise } from "@/lib/utils";
@@ -453,11 +454,11 @@ export function PosShell() {
   const discountSummary =
     requestedDiscountAmount > 0 ? formatPaise(requestedDiscountAmount) : null;
   const paymentStatusLabel = quote
-    ? paymentBalance === 0
-      ? `Payment matched ${formatPaise(paymentSummary.totalAmount)}`
-      : paymentBalance > 0
-        ? `Remaining ${formatPaise(paymentBalance)}`
-        : `Overpaid ${formatPaise(Math.abs(paymentBalance))}`
+    ? staffPaymentStatusLabel({
+        paymentTotal: paymentSummary.totalAmount,
+        paymentBalance,
+        formatAmount: formatPaise,
+      })
     : "Payment not ready";
   const discountReasonMissing =
     requestedDiscountAmount > 0 && discountReason.trim().length === 0;
@@ -724,8 +725,12 @@ export function PosShell() {
   }
 
   async function addRetailLine(productId = selectedProductId) {
-    if (!selectedTabId || !productId) {
-      setMessage("Select a tab and product first.");
+    if (!selectedTabId) {
+      setMessage("Select or create a bill before adding snacks.");
+      return;
+    }
+    if (!productId) {
+      setMessage("Select a snack or drink first.");
       return;
     }
     const tabId = selectedTabId;
@@ -1197,8 +1202,8 @@ export function PosShell() {
         </section>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="grid gap-4">
+      <section className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(390px,0.95fr)] lg:items-start">
+        <div className="grid min-h-0 gap-4">
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1370,6 +1375,82 @@ export function PosShell() {
             </div>
           </div>
 
+          <section
+            aria-label="Snack quick add"
+            className="rounded-lg border border-zinc-200 bg-white p-4"
+          >
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <ShoppingBasket className="h-4 w-4 text-emerald-700" />
+                  Snacks & drinks
+                </h2>
+                <p className="text-sm text-zinc-600">
+                  Adds to the selected current bill.
+                </p>
+              </div>
+              <Badge tone={selectedTab ? "success" : "warning"}>
+                {selectedTab ? currentBillLabel : "No bill selected"}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {(bootstrap?.products ?? []).slice(0, 4).map((product) => (
+                <button
+                  key={product.id}
+                  className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={actionPending}
+                  onClick={() => addRetailLine(product.id)}
+                >
+                  <span className="block text-sm font-semibold">
+                    {product.name}
+                  </span>
+                  <span className="mt-1 block text-sm text-zinc-600">
+                    {formatPaise(product.unitPrice)}
+                  </span>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-800">
+                    <Plus className="h-3.5 w-3.5" />
+                    Add 1
+                  </span>
+                </button>
+              ))}
+              {!loading && (bootstrap?.products ?? []).length === 0 ? (
+                <p className="col-span-full text-sm text-zinc-600">
+                  No snacks or drinks configured.
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-3 grid gap-1">
+              <label
+                className="text-xs font-medium text-zinc-600"
+                htmlFor="product-select"
+              >
+                More snacks & drinks
+              </label>
+              <div className="flex items-center gap-2">
+                <select
+                  id="product-select"
+                  className="min-h-10 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+                  value={selectedProductId}
+                  onChange={(event) => setSelectedProductId(event.target.value)}
+                >
+                  {bootstrap?.products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - {formatPaise(product.unitPrice)}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  aria-label="Add selected snack or drink"
+                  disabled={actionPending}
+                  variant="secondary"
+                  onClick={() => addRetailLine()}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </section>
+
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Open bills</h2>
@@ -1438,11 +1519,11 @@ export function PosShell() {
           </div>
         </div>
 
-        <aside className="grid content-start gap-4">
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <aside className="min-h-0 lg:sticky lg:top-4">
+          <div className="flex min-h-0 flex-col rounded-lg border border-zinc-200 bg-white p-3 lg:h-[calc(100vh-15rem)] lg:min-h-[30rem]">
             <h2 className="text-lg font-semibold">Current bill</h2>
             {selectedTab ? (
-              <div className="mt-3 grid gap-4">
+              <div className="mt-3 flex min-h-0 flex-1 flex-col">
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -1468,7 +1549,31 @@ export function PosShell() {
                   <p className="mt-3 text-sm font-medium text-emerald-900">
                     {currentBillStats}
                   </p>
+                  {quote?.lines.length ? (
+                    <div className="mt-2 grid gap-1 border-t border-emerald-200 pt-2">
+                      {quote.lines.slice(0, 3).map((line, index) => (
+                        <div
+                          key={
+                            line.id ??
+                            line.sourceLineId ??
+                            `${line.description}-${index}`
+                          }
+                          className="flex items-center justify-between gap-3 text-xs font-medium text-emerald-950"
+                        >
+                          <span className="min-w-0 truncate">
+                            {billHeaderLineLabel(line, timedLines)}
+                          </span>
+                          <span className="shrink-0">
+                            {formatPaise(line.totalAmount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
+                <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                  <div className="grid gap-3">
+                {activeTimedLines.length > 0 || timedLines.length === 0 ? (
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between gap-3">
                     <p className="flex items-center gap-2 text-sm font-semibold">
@@ -1481,7 +1586,7 @@ export function PosShell() {
                       <Badge>No active games</Badge>
                     )}
                   </div>
-                  {timedLines.map((line) => {
+                  {activeTimedLines.map((line) => {
                     const isMoving = movingTimedLineId === line.id;
                     const lineTiming = timedLineTiming(line, timingNowMs);
                     const hasGameControls =
@@ -1698,81 +1803,9 @@ export function PosShell() {
                     </p>
                   ) : null}
                 </div>
+                ) : null}
 
-                <div className="grid gap-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="flex items-center gap-2 text-sm font-semibold">
-                      <ShoppingBasket className="h-4 w-4 text-emerald-700" />
-                      Snacks & drinks
-                    </p>
-                    <Badge>{selectedTab.retailLines.length} item{selectedTab.retailLines.length === 1 ? "" : "s"}</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(bootstrap?.products ?? []).slice(0, 4).map((product) => (
-                      <button
-                        key={product.id}
-                        className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={actionPending}
-                        onClick={() => addRetailLine(product.id)}
-                      >
-                        <span className="block text-sm font-semibold">
-                          {product.name}
-                        </span>
-                        <span className="mt-1 block text-sm text-zinc-600">
-                          {formatPaise(product.unitPrice)}
-                        </span>
-                        <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-800">
-                          <Plus className="h-3.5 w-3.5" />
-                          Add 1
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="grid gap-1">
-                    <label
-                      className="text-xs font-medium text-zinc-600"
-                      htmlFor="product-select"
-                    >
-                      More snacks & drinks
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <select
-                        id="product-select"
-                        className="min-h-10 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-                        value={selectedProductId}
-                        onChange={(event) => setSelectedProductId(event.target.value)}
-                      >
-                        {bootstrap?.products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} - {formatPaise(product.unitPrice)}
-                          </option>
-                        ))}
-                      </select>
-                      <Button
-                        aria-label="Add selected snack or drink"
-                        disabled={actionPending}
-                        variant="secondary"
-                        onClick={() => addRetailLine()}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid gap-1">
-                    {selectedTab.retailLines.map((line) => (
-                      <p key={line.id} className="text-sm text-zinc-700">
-                        {line.quantity} x {line.descriptionSnapshot} -{" "}
-                        {formatPaise(line.unitPriceSnapshot * line.quantity)}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid gap-3 rounded-md border border-zinc-200 p-3">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-emerald-700" />
-                    <p className="text-sm font-semibold">Payment</p>
-                  </div>
+                <div className="grid gap-2">
                   {quote ? (
                     <div className="grid gap-3 rounded-md bg-zinc-50 p-3">
                       <div className="flex items-center justify-between gap-3">
@@ -1782,44 +1815,128 @@ export function PosShell() {
                         <Badge>{quote.lines.length} line{quote.lines.length === 1 ? "" : "s"}</Badge>
                       </div>
                       <div className="grid gap-1.5">
-                        {quote.lines.map((line, index) => (
-                          <div
-                            key={
-                              line.id ??
-                              line.sourceLineId ??
-                              `${line.description}-${index}`
-                            }
-                            className="flex items-center justify-between gap-3 text-sm"
-                          >
-                            <span className="min-w-0 truncate">
-                              {staffInvoiceLineLabel(line)}
-                            </span>
-                            <span className="shrink-0 font-medium">
-                              {formatPaise(line.totalAmount)}
-                            </span>
-                          </div>
-                        ))}
+                        {quote.lines.map((line, index) => {
+                          const sourceTimedLine = line.sourceLineId
+                            ? timedLines.find(
+                                (timedLine) => timedLine.id === line.sourceLineId,
+                              ) ?? null
+                            : null;
+                          const sourceTiming = sourceTimedLine
+                            ? timedLineTiming(sourceTimedLine, timingNowMs)
+                            : null;
+                          const sourceExpanded = sourceTimedLine
+                            ? expandedStoppedLineId === sourceTimedLine.id
+                            : false;
+                          const lineLabel =
+                            sourceTimedLine?.resource?.name && line.billableMinutes
+                              ? `${sourceTimedLine.resource.name} - ${line.billableMinutes} min`
+                              : staffInvoiceLineLabel(line);
+
+                          return (
+                            <div
+                              key={
+                                line.id ??
+                                line.sourceLineId ??
+                                `${line.description}-${index}`
+                              }
+                              className="rounded-md bg-white px-3 py-2 text-sm"
+                            >
+                              {sourceTimedLine &&
+                              !isLiveTimedLine(sourceTimedLine) ? (
+                                <>
+                                  <button
+                                    className="flex w-full items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+                                    onClick={() =>
+                                      setExpandedStoppedLineId((current) =>
+                                        current === sourceTimedLine.id
+                                          ? ""
+                                          : sourceTimedLine.id,
+                                      )
+                                    }
+                                    type="button"
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="block truncate font-semibold text-zinc-950">
+                                        {lineLabel}
+                                      </span>
+                                      <span className="mt-0.5 block truncate text-xs text-zinc-600">
+                                        {staffServiceName(
+                                          sourceTimedLine.descriptionSnapshot,
+                                        )}
+                                      </span>
+                                    </span>
+                                    <span className="flex shrink-0 items-center gap-2">
+                                      <span className="font-semibold">
+                                        {formatPaise(line.totalAmount)}
+                                      </span>
+                                      <Badge
+                                        tone={timedLineBadgeTone(
+                                          sourceTimedLine.status,
+                                        )}
+                                      >
+                                        {statusLabel(sourceTimedLine.status)}
+                                      </Badge>
+                                      <ChevronDown
+                                        className={`h-4 w-4 text-zinc-500 transition ${
+                                          sourceExpanded ? "rotate-180" : ""
+                                        }`}
+                                      />
+                                    </span>
+                                  </button>
+                                  {sourceExpanded && sourceTiming ? (
+                                    <div className="mt-2 grid grid-cols-3 gap-2 rounded-md bg-zinc-50 p-2">
+                                      <TimingStat
+                                        label="Start"
+                                        value={formatSessionTime(
+                                          sourceTiming.startAt,
+                                        )}
+                                      />
+                                      <TimingStat
+                                        label="Stop"
+                                        value={formatSessionTime(
+                                          sourceTiming.stopAt,
+                                        )}
+                                      />
+                                      <TimingStat
+                                        label="Duration"
+                                        value={formatDuration(
+                                          sourceTiming.durationMs,
+                                        )}
+                                      />
+                                    </div>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="min-w-0 truncate">
+                                    {lineLabel}
+                                  </span>
+                                  <span className="shrink-0 font-medium">
+                                    {formatPaise(line.totalAmount)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
 
                       <div className="rounded-md border border-zinc-200 bg-white p-2">
                         <button
-                          className="flex min-h-10 w-full items-center justify-between gap-3 text-left"
+                          className="flex min-h-10 w-full items-center gap-2 text-left"
                           onClick={() =>
                             setBillDetailsOpen((current) => !current)
                           }
                           type="button"
                         >
-                          <span className="flex items-center gap-2 text-sm font-semibold">
-                            Bill details
-                            <ChevronDown
-                              className={`h-4 w-4 text-zinc-500 transition ${
-                                billDetailsOpen ? "rotate-180" : ""
-                              }`}
-                            />
-                          </span>
                           <span className="text-sm font-semibold">
-                            {formatPaise(quote.totalAmount)}
+                            Bill details
                           </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-zinc-500 transition ${
+                              billDetailsOpen ? "rotate-180" : ""
+                            }`}
+                          />
                         </button>
                         {quote.discountAmount > 0 ? (
                           <div className="flex items-center justify-between gap-3 border-t border-zinc-100 pt-2 text-sm">
@@ -1873,7 +1990,11 @@ export function PosShell() {
                       {quoteLoading ? "Calculating bill..." : "Select a bill to see items."}
                     </div>
                   )}
-                  <div className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3">
+                  </div>
+                </div>
+                </div>
+                <div className="mt-3 grid shrink-0 gap-2 border-t border-zinc-200 bg-white pt-2">
+                  <div className="grid gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold">
@@ -2015,17 +2136,15 @@ export function PosShell() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="grid gap-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold">Collect payment</p>
-                      <Badge tone={paymentBalance === 0 ? "success" : "warning"}>
-                        {paymentBalanceLabel(paymentBalance)}
-                      </Badge>
-                    </div>
+                  <div className="grid gap-2 rounded-md border border-zinc-200 bg-white p-2">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <Wallet className="h-4 w-4 text-emerald-700" />
+                      Collect payment
+                    </p>
                     {paymentDrafts.map((paymentDraft, index) => (
                       <div
                         key={paymentDraft.id}
-                        className="grid gap-2 rounded-md border border-zinc-200 bg-white p-2"
+                        className="grid gap-2"
                       >
                         <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
                           <label className="grid gap-1 text-xs font-medium text-zinc-600">
@@ -2064,49 +2183,31 @@ export function PosShell() {
                             />
                           </label>
                         </div>
-                        <div
-                          className={`grid gap-2 ${
-                            paymentDrafts.length > 1
-                              ? "sm:grid-cols-[1fr_auto_auto]"
-                              : ""
-                          }`}
-                        >
-                          <label className="grid gap-1 text-xs font-medium text-zinc-600">
-                            Reference / note
-                            <Input
-                              aria-label={`Tender ${index + 1} reference`}
-                              disabled={actionPending}
-                              placeholder="Optional UPI reference"
-                              value={paymentDraft.reference}
-                              onChange={(event) =>
-                                updatePaymentDraft(paymentDraft.id, {
-                                  reference: event.target.value,
-                                })
+                        {paymentDrafts.length > 1 ? (
+                          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                            <Button
+                              className="px-3"
+                              disabled={!quote || actionPending}
+                              onClick={() =>
+                                fillPaymentRemainder(paymentDraft.id)
                               }
-                            />
-                          </label>
-                          {paymentDrafts.length > 1 ? (
-                            <>
-                          <Button
-                            className="px-3"
-                            disabled={!quote || actionPending}
-                            onClick={() => fillPaymentRemainder(paymentDraft.id)}
-                            variant="secondary"
-                          >
-                            Fill rest
-                          </Button>
-                          <Button
-                            aria-label={`Remove tender ${index + 1}`}
-                            className="px-3"
-                            disabled={paymentDrafts.length === 1 || actionPending}
-                            onClick={() => removePaymentDraft(paymentDraft.id)}
-                            variant="ghost"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                            </>
-                          ) : null}
-                        </div>
+                              variant="secondary"
+                            >
+                              Fill rest
+                            </Button>
+                            <Button
+                              aria-label={`Remove tender ${index + 1}`}
+                              className="px-3"
+                              disabled={
+                                paymentDrafts.length === 1 || actionPending
+                              }
+                              onClick={() => removePaymentDraft(paymentDraft.id)}
+                              variant="ghost"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -2116,7 +2217,7 @@ export function PosShell() {
                         disabled={paymentDrafts.length >= 5 || actionPending}
                       >
                         <Plus className="h-4 w-4" />
-                        Add another payment
+                        Add payment
                       </Button>
                       <Button
                         variant="secondary"
@@ -2142,7 +2243,7 @@ export function PosShell() {
                     </div>
                   </div>
                   <Button
-                    className="min-h-14 text-base"
+                    className="min-h-12 text-base"
                     onClick={checkout}
                     disabled={!canPostCheckout}
                   >
@@ -2300,6 +2401,21 @@ function branchName(branchId: string, branches: readonly Branch[]): string {
 
 function cashierServiceName(service: Service): string {
   return staffServiceName(`${service.name} ${service.description}`);
+}
+
+function billHeaderLineLabel(
+  line: InvoiceLine,
+  timedLines: readonly TimedLine[],
+): string {
+  const sourceTimedLine = line.sourceLineId
+    ? timedLines.find((timedLine) => timedLine.id === line.sourceLineId) ?? null
+    : null;
+
+  if (sourceTimedLine?.resource?.name && line.billableMinutes) {
+    return `${sourceTimedLine.resource.name} - ${line.billableMinutes} min`;
+  }
+
+  return staffInvoiceLineLabel(line);
 }
 
 function elapsedLineLabel(line: TimedLine): string {
@@ -2517,16 +2633,6 @@ function calculateDiscountAmount({
       : Math.round(numericValue * 100);
 
   return Math.min(Math.max(amount, 0), grossAmount);
-}
-
-function paymentBalanceLabel(balance: number): string {
-  if (balance === 0) {
-    return "Matched";
-  }
-  if (balance > 0) {
-    return `${formatPaise(balance)} remaining`;
-  }
-  return `${formatPaise(Math.abs(balance))} over`;
 }
 
 function isLiveTimedLine(line: TimedLine): boolean {

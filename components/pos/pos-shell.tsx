@@ -1234,9 +1234,6 @@ export function PosShell() {
                   bootstrap?.services ?? [],
                 );
                 const resourceUse = resourceUseById.get(resource.id) ?? null;
-                const resourceTiming = resourceUse
-                  ? timedLineTiming(resourceUse.line, timingNowMs)
-                  : null;
                 const estimatedLine = quote?.lines.find(
                   (line) => line.sourceLineId === resourceUse?.line.id,
                 );
@@ -1300,7 +1297,7 @@ export function PosShell() {
                       resource={resource}
                       liveLine={resourceUse?.line ?? null}
                     />
-                    {resourceUse && resourceTiming ? (
+                    {resourceUse ? (
                       <>
                         <div className="grid gap-1 rounded-md bg-white/80 px-3 py-2 text-sm text-zinc-800">
                           <span className="flex items-center gap-1.5 font-semibold">
@@ -1321,20 +1318,6 @@ export function PosShell() {
                                 ? "Estimate calculating"
                                 : "Open bill to see estimate"}
                           </span>
-                          <div className="mt-2 grid grid-cols-3 gap-2 rounded-md bg-zinc-50 p-2">
-                            <TimingStat
-                              label="Start"
-                              value={formatSessionTime(resourceTiming.startAt)}
-                            />
-                            <TimingStat
-                              label="Stop"
-                              value={formatSessionTime(resourceTiming.stopAt)}
-                            />
-                            <TimingStat
-                              label="Duration"
-                              value={formatDuration(resourceTiming.durationMs)}
-                            />
-                          </div>
                         </div>
                         <div className="grid gap-2">
                           <Button
@@ -1580,6 +1563,56 @@ export function PosShell() {
                   <p className="mt-3 text-sm font-medium text-emerald-900">
                     {currentBillStats}
                   </p>
+                  {timedLines.length > 0 ? (
+                    <div className="mt-2 grid gap-2 border-t border-emerald-200 pt-2">
+                      <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase text-emerald-900">
+                        <span>Game timing</span>
+                        <span>
+                          {timedLines.length} game
+                          {timedLines.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      {timedLines.slice(0, 2).map((line) => {
+                        const lineTiming = timedLineTiming(line, timingNowMs);
+
+                        return (
+                          <div
+                            key={line.id}
+                            className="grid gap-1 rounded-md bg-white/70 px-3 py-2 text-xs text-emerald-950"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 truncate font-semibold">
+                                {line.resource?.name ??
+                                  staffServiceName(line.descriptionSnapshot)}
+                              </span>
+                              <Badge tone={timedLineBadgeTone(line.status)}>
+                                {statusLabel(line.status)}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <BillTimingStat
+                                label="Start"
+                                value={formatSessionTime(lineTiming.startAt)}
+                              />
+                              <BillTimingStat
+                                label="Stop"
+                                value={formatSessionTime(lineTiming.stopAt)}
+                              />
+                              <BillTimingStat
+                                label="Duration"
+                                value={formatDuration(lineTiming.durationMs)}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {timedLines.length > 2 ? (
+                        <p className="text-xs font-medium text-emerald-800">
+                          +{timedLines.length - 2} more in bill details
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {quote?.lines.length ? (
                     <div className="mt-2 grid gap-1 border-t border-emerald-200 pt-2">
                       {quote.lines.slice(0, 3).map((line, index) => (
@@ -2307,6 +2340,17 @@ function TimingStat({ label, value }: { label: string; value: string }) {
     <div className="min-w-0">
       <p className="text-[11px] font-medium uppercase text-zinc-500">{label}</p>
       <p className="truncate text-xs font-semibold text-zinc-900">{value}</p>
+    </div>
+  );
+}
+
+function BillTimingStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-medium uppercase text-emerald-700">
+        {label}
+      </p>
+      <p className="truncate text-xs font-semibold text-emerald-950">{value}</p>
     </div>
   );
 }

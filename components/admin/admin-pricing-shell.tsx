@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { catalogBranchFilterMatches } from "@/lib/admin/catalog-filter";
 import { cn, formatPaise } from "@/lib/utils";
 
 type Role = "OWNER" | "MANAGER" | "STAFF";
@@ -97,21 +98,27 @@ export function AdminPricingShell() {
     (taxRate) => taxRate.kind === "SAC" && !taxRate.effectiveTo,
   );
   const owner = currentUser?.role === "OWNER";
+  const managerBranch =
+    currentUser?.role === "MANAGER"
+      ? branches.find((branch) => branch.id === currentUser.branchId)
+      : null;
 
   const filteredServices = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return services.filter((service) => {
-      const branchMatch =
-        !branchFilter ||
-        service.branchId === branchFilter ||
-        (!service.branchId && branchFilter === "GLOBAL");
-      const searchMatch =
-        !normalizedSearch ||
-        service.name.toLowerCase().includes(normalizedSearch) ||
-        service.description.toLowerCase().includes(normalizedSearch) ||
-        service.sacCode.toLowerCase().includes(normalizedSearch);
-      return branchMatch && searchMatch;
-    });
+    return services
+      .filter((service) => {
+        const branchMatch = catalogBranchFilterMatches(service, branchFilter);
+        const searchMatch =
+          !normalizedSearch ||
+          service.name.toLowerCase().includes(normalizedSearch) ||
+          service.description.toLowerCase().includes(normalizedSearch) ||
+          service.sacCode.toLowerCase().includes(normalizedSearch);
+        return branchMatch && searchMatch;
+      })
+      .sort((left, right) =>
+        serviceBranchSort(left, right, branchFilter) ||
+        left.name.localeCompare(right.name),
+      );
   }, [branchFilter, search, services]);
 
   const load = useCallback(async () => {
@@ -178,6 +185,31 @@ export function AdminPricingShell() {
   }
 
   function startEdit(service: ServiceRow) {
+    if (currentUser?.role === "MANAGER" && service.branchId === null) {
+      setSelectedServiceId(null);
+      setMessage(
+        `${service.name} is set for all branches. Saving will create a ${
+          managerBranch?.name ?? "branch"
+        } price for this branch.`,
+      );
+      setDraft({
+        branchId: currentUser.branchId ?? "",
+        taxRateId: service.taxRateId,
+        name: service.name,
+        sacCode: service.sacCode,
+        description: service.description,
+        ratePerMinute: paiseToRupeeInput(service.pricingRule.ratePerMinute),
+        minimumBillableMinutes: String(service.pricingRule.minimumBillableMinutes),
+        roundUpToMinutes: String(service.pricingRule.roundUpToMinutes),
+        managerDiscountLimitPercent: String(
+          service.pricingRule.managerDiscountLimitPercent,
+        ),
+        isActive: service.isActive,
+        reason: "",
+      });
+      return;
+    }
+
     setSelectedServiceId(service.id);
     setMessage(null);
     setDraft({
@@ -565,4 +597,18 @@ function rupeeInputToPaise(value: string): number {
 
 function paiseToRupeeInput(value: number): string {
   return (value / 100).toFixed(2);
+}
+
+function serviceBranchSort(
+  left: ServiceRow,
+  right: ServiceRow,
+  branchFilter: string,
+): number {
+  if (!branchFilter || branchFilter === "GLOBAL") {
+    return 0;
+  }
+
+  const leftWeight = left.branchId === branchFilter ? 0 : 1;
+  const rightWeight = right.branchId === branchFilter ? 0 : 1;
+  return leftWeight - rightWeight;
 }

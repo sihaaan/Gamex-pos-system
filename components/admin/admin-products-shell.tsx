@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { catalogBranchFilterMatches } from "@/lib/admin/catalog-filter";
 import { cn, formatPaise } from "@/lib/utils";
 
 type Role = "OWNER" | "MANAGER" | "STAFF";
@@ -112,10 +113,7 @@ export function AdminProductsShell() {
   const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return products.filter((product) => {
-      const branchMatch =
-        !branchFilter ||
-        product.branchId === branchFilter ||
-        (!product.branchId && branchFilter === "GLOBAL");
+      const branchMatch = catalogBranchFilterMatches(product, branchFilter);
       const searchMatch =
         !normalizedSearch ||
         product.name.toLowerCase().includes(normalizedSearch) ||

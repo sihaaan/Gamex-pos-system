@@ -40,6 +40,7 @@ import {
   staffPaymentStatusLabel,
   staffServiceName,
 } from "@/lib/pos/display";
+import { findServiceForResource } from "@/lib/pos/service-selection";
 import { formatPaise } from "@/lib/utils";
 
 type Bootstrap = {
@@ -62,6 +63,7 @@ type Resource = {
 };
 type Service = {
   id: string;
+  branchId: string | null;
   name: string;
   description: string;
   pricingRule: { ratePerMinute: number };
@@ -2764,23 +2766,6 @@ function statusLabel(status: TimedLine["status"]): string {
     return "Closed";
   }
   return "Voided";
-}
-
-function findServiceForResource(
-  resource: Resource,
-  services: readonly Service[],
-): Service | null {
-  const candidates =
-    resource.kind === "POOL_TABLE"
-      ? ["pool"]
-      : ["ps5", "console"];
-
-  return (
-    services.find((service) => {
-      const searchable = `${service.name} ${service.description}`.toLowerCase();
-      return candidates.some((candidate) => searchable.includes(candidate));
-    }) ?? null
-  );
 }
 
 function resourceLabel(kind: Resource["kind"]): string {

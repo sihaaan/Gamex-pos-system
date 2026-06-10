@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { catalogBranchFilterMatches } from "@/lib/admin/catalog-filter";
 import {
   adminCatalogAuditActions,
   assertCanManageBranchScopedRecord,
@@ -120,6 +121,15 @@ describe("admin catalog management policy", () => {
       .toBe(true);
     expect(isResourceVisibleInPos({ isActive: false, branchId: "branch-1" }, "branch-1"))
       .toBe(false);
+  });
+
+  it("keeps all-branch catalog rows visible inside a branch admin filter", () => {
+    expect(catalogBranchFilterMatches({ branchId: null }, "branch-1")).toBe(true);
+    expect(catalogBranchFilterMatches({ branchId: "branch-1" }, "branch-1")).toBe(true);
+    expect(catalogBranchFilterMatches({ branchId: "branch-2" }, "branch-1")).toBe(false);
+    expect(catalogBranchFilterMatches({ branchId: null }, "GLOBAL")).toBe(true);
+    expect(catalogBranchFilterMatches({ branchId: "branch-1" }, "GLOBAL")).toBe(false);
+    expect(catalogBranchFilterMatches({ branchId: "branch-2" }, "")).toBe(true);
   });
 });
 

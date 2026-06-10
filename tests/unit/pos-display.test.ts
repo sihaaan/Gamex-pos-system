@@ -6,6 +6,7 @@ import {
   staffPaymentStatusLabel,
   staffServiceName,
 } from "@/lib/pos/display";
+import { findServiceForResource } from "@/lib/pos/service-selection";
 
 describe("POS staff display helpers", () => {
   it("summarizes bill status without repeating accounting detail", () => {
@@ -112,5 +113,48 @@ describe("POS staff display helpers", () => {
   it("hides timed service catalog wording from POS service names", () => {
     expect(staffServiceName("Pool table timed play")).toBe("Pool play");
     expect(staffServiceName("PS5 console timed play")).toBe("PS5 play");
+  });
+
+  it("prefers branch-specific timed pricing over all-branch defaults", () => {
+    const resource = { branchId: "branch-1", kind: "POOL_TABLE" as const };
+    const service = findServiceForResource(resource, [
+      {
+        branchId: "branch-2",
+        name: "Pool table",
+        description: "Pool table timed play",
+      },
+      {
+        branchId: null,
+        name: "Pool table",
+        description: "Pool table timed play",
+      },
+      {
+        branchId: "branch-1",
+        name: "Pool table",
+        description: "Pool table timed play",
+      },
+    ]);
+
+    expect(service?.branchId).toBe("branch-1");
+  });
+
+  it("falls back to all-branch timed pricing when no branch override exists", () => {
+    const service = findServiceForResource(
+      { branchId: "branch-1", kind: "CONSOLE" },
+      [
+        {
+          branchId: "branch-2",
+          name: "PS5 console",
+          description: "PS5 console timed play",
+        },
+        {
+          branchId: null,
+          name: "PS5 console",
+          description: "PS5 console timed play",
+        },
+      ],
+    );
+
+    expect(service?.branchId).toBeNull();
   });
 });

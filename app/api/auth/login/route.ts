@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/auth/password";
+import { canIssueSessionForUser } from "@/lib/auth/login-policy";
 import {
   createSession,
   requestFingerprint,
@@ -26,7 +27,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
     });
 
-    if (!user || !user.isActive) {
+    if (!canIssueSessionForUser(user)) {
       return invalidLogin();
     }
 

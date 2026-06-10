@@ -170,3 +170,46 @@ export const loginSchema = z.object({
   email: z.string().trim().email().max(255),
   password: z.string().min(8).max(200),
 });
+
+export const adminUserRoleSchema = z.enum(["OWNER", "MANAGER", "STAFF"]);
+
+export const adminUserCreateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(255),
+  role: adminUserRoleSchema,
+  branchId: cuidSchema.nullable().optional(),
+  temporaryPassword: z.string().min(8).max(200),
+  isActive: z.boolean().default(true),
+});
+
+export const adminUserUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
+  role: adminUserRoleSchema.optional(),
+  branchId: cuidSchema.nullable().optional(),
+  isActive: z.boolean().optional(),
+  reason: z.string().trim().max(240).optional(),
+});
+
+export const adminPasswordResetSchema = z.object({
+  temporaryPassword: z.string().min(8).max(200),
+  reason: z.string().trim().min(3).max(240).optional(),
+});
+
+export const adminStateChangeSchema = z.object({
+  reason: z.string().trim().min(3).max(240).optional(),
+});
+
+const branchBaseSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  code: z.string().trim().min(2).max(12).toUpperCase(),
+  address: z.string().trim().min(3).max(240),
+  stateCode: z.string().trim().regex(/^\d{2}$/, "Use a two-digit GST state code."),
+  timezone: z.string().trim().min(3).max(80).default("Asia/Kolkata"),
+  isActive: z.boolean().default(true),
+});
+
+export const adminBranchCreateSchema = branchBaseSchema;
+
+export const adminBranchUpdateSchema = branchBaseSchema.partial().extend({
+  reason: z.string().trim().max(240).optional(),
+});

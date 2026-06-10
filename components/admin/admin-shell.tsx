@@ -2,6 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  Building2,
+  Gamepad2,
+  IndianRupee,
+  Package,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -197,6 +205,35 @@ export function AdminShell() {
           Catalog, GST, pricing, stock, and resources. Sensitive changes are audited.
         </p>
       </section>
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <AdminCard
+          description="Create staff, reset passwords, deactivate access."
+          href="/admin/users"
+          icon={<Users className="h-5 w-5" />}
+          title="Users"
+        />
+        <AdminCard
+          description="GST branch details, status, and resource counts."
+          href="/admin/branches"
+          icon={<Building2 className="h-5 w-5" />}
+          title="Branches"
+        />
+        <AdminCard
+          description="Pool tables and PS5 consoles."
+          icon={<Gamepad2 className="h-5 w-5" />}
+          title="Resources"
+        />
+        <AdminCard
+          description="Food, drinks, services, and stock."
+          icon={<Package className="h-5 w-5" />}
+          title="Products/services"
+        />
+        <AdminCard
+          description="GST rates, pricing rules, and discounts."
+          icon={<IndianRupee className="h-5 w-5" />}
+          title="GST/pricing"
+        />
+      </section>
       {error ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
           {error}
@@ -367,10 +404,10 @@ export function AdminShell() {
                 <p className="font-medium">{rule.name}</p>
                 <p className="text-xs text-zinc-600">
                   {rule.discountPercent}% after {rule.minimumBillableMinutes} min
-                  {" · "}
+                  {" - "}
                   {formatWeekdays(rule.daysOfWeek)} {minuteOfDayToTime(rule.startMinuteOfDay)}
                   -{minuteOfDayToTime(rule.endMinuteOfDay)}
-                  {" · "}
+                  {" - "}
                   {rule.branch?.name ?? "All branches"}
                 </p>
               </div>
@@ -394,7 +431,7 @@ export function AdminShell() {
               <div>
                 <p className="font-medium">{service.name}</p>
                 <p className="text-xs text-zinc-600">
-                  SAC {service.sacCode} · GST {service.taxRate.gstRate}% · min{" "}
+                  SAC {service.sacCode} - GST {service.taxRate.gstRate}% - min{" "}
                   {service.pricingRule.minimumBillableMinutes} min
                 </p>
               </div>
@@ -408,7 +445,7 @@ export function AdminShell() {
               <div>
                 <p className="font-medium">{product.name}</p>
                 <p className="text-xs text-zinc-600">
-                  SKU {product.sku} · HSN {product.hsnCode}
+                  SKU {product.sku} - HSN {product.hsnCode}
                 </p>
               </div>
               <div className="text-right">
@@ -443,6 +480,54 @@ export function AdminShell() {
         </Panel>
       </section>
     </main>
+  );
+}
+
+function AdminCard({
+  title,
+  description,
+  icon,
+  href,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+  href?: string;
+}) {
+  const content = (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <span className="grid h-10 w-10 place-items-center rounded-md bg-emerald-50 text-emerald-800">
+          {icon}
+        </span>
+        {href ? (
+          <span className="text-xs font-semibold text-emerald-800">Open</span>
+        ) : (
+          <span className="text-xs font-semibold text-zinc-500">Later</span>
+        )}
+      </div>
+      <div>
+        <h2 className="font-semibold">{title}</h2>
+        <p className="mt-1 text-xs leading-5 text-zinc-600">{description}</p>
+      </div>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        className="grid min-h-36 gap-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm transition hover:border-emerald-500 hover:bg-emerald-50"
+        href={href}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="grid min-h-36 gap-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm opacity-80">
+      {content}
+    </div>
   );
 }
 

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/session";
 import { errorResponse } from "@/lib/http";
+import {
+  branchOptionalCatalogWhereForActor,
+  branchScopedWhereForActor,
+  branchWhereForActor,
+} from "@/lib/admin/management";
 import { requirePermission } from "@/lib/permissions/policy";
 import { prisma } from "@/lib/prisma";
 
@@ -12,16 +17,16 @@ export async function GET(): Promise<NextResponse> {
     const [branches, services, products, taxRates, resources, discountRules] =
       await Promise.all([
         prisma.branch.findMany({
-          where: { legalEntityId: auth.legalEntityId },
+          where: branchWhereForActor(auth),
           orderBy: { name: "asc" },
         }),
         prisma.serviceCatalog.findMany({
-          where: { legalEntityId: auth.legalEntityId },
+          where: branchOptionalCatalogWhereForActor(auth),
           include: { pricingRule: true, taxRate: true },
           orderBy: { name: "asc" },
         }),
         prisma.productCatalog.findMany({
-          where: { legalEntityId: auth.legalEntityId },
+          where: branchOptionalCatalogWhereForActor(auth),
           include: { taxRate: true },
           orderBy: { name: "asc" },
         }),
@@ -30,11 +35,11 @@ export async function GET(): Promise<NextResponse> {
           orderBy: [{ code: "asc" }, { effectiveFrom: "desc" }],
         }),
         prisma.resource.findMany({
-          where: { legalEntityId: auth.legalEntityId },
+          where: branchScopedWhereForActor(auth),
           orderBy: [{ branchId: "asc" }, { name: "asc" }],
         }),
         prisma.discountRule.findMany({
-          where: { legalEntityId: auth.legalEntityId },
+          where: branchOptionalCatalogWhereForActor(auth),
           include: { branch: { select: { name: true, code: true } } },
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
         }),

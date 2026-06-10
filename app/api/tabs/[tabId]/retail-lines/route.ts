@@ -84,6 +84,18 @@ export async function POST(
     });
     assertLegalEntityScope(auth.legalEntityId, product);
 
+    if (product.branchId && product.branchId !== tab.branchId) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "PRODUCT_BRANCH_MISMATCH",
+            message: "This product is not configured for the tab branch.",
+          },
+        },
+        { status: 400 },
+      );
+    }
+
     const line = await prisma.tabRetailLine.create({
       data: {
         legalEntityId: auth.legalEntityId,

@@ -213,3 +213,86 @@ export const adminBranchCreateSchema = branchBaseSchema;
 export const adminBranchUpdateSchema = branchBaseSchema.partial().extend({
   reason: z.string().trim().max(240).optional(),
 });
+
+export const resourceKindSchema = z.enum(["POOL_TABLE", "CONSOLE"]);
+
+export const adminResourceCreateSchema = z.object({
+  branchId: cuidSchema,
+  name: z.string().trim().min(2).max(80),
+  kind: resourceKindSchema,
+  isActive: z.boolean().default(true),
+});
+
+export const adminResourceUpdateSchema = z.object({
+  branchId: cuidSchema.optional(),
+  name: z.string().trim().min(2).max(80).optional(),
+  kind: resourceKindSchema.optional(),
+  isActive: z.boolean().optional(),
+  reason: z.string().trim().max(240).optional(),
+});
+
+export const adminProductCreateSchema = z.object({
+  branchId: cuidSchema.nullable().optional(),
+  taxRateId: cuidSchema,
+  sku: z.string().trim().min(2).max(40).toUpperCase(),
+  name: z.string().trim().min(2).max(120),
+  hsnCode: z.string().trim().min(2).max(12),
+  unitPrice: paiseSchema,
+  trackStock: z.boolean().default(true),
+  stockQuantity: z.number().int().min(0).max(999_999).default(0),
+  lowStockThreshold: z.number().int().min(0).max(999_999).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const adminProductUpdateSchema = z.object({
+  branchId: cuidSchema.nullable().optional(),
+  taxRateId: cuidSchema.optional(),
+  sku: z.string().trim().min(2).max(40).toUpperCase().optional(),
+  name: z.string().trim().min(2).max(120).optional(),
+  hsnCode: z.string().trim().min(2).max(12).optional(),
+  unitPrice: paiseSchema.optional(),
+  trackStock: z.boolean().optional(),
+  stockQuantity: z.number().int().min(0).max(999_999).optional(),
+  lowStockThreshold: z.number().int().min(0).max(999_999).optional(),
+  isActive: z.boolean().optional(),
+  reason: z.string().trim().max(240).optional(),
+});
+
+export const adminProductStockAdjustmentSchema = z.object({
+  adjustmentType: z.enum(["INCREASE", "DECREASE", "SET_COUNT"]),
+  quantity: z.number().int().min(0).max(999_999),
+  reason: z.string().trim().min(3).max(500),
+});
+
+export const adminServiceCreateSchema = z.object({
+  branchId: cuidSchema.nullable().optional(),
+  taxRateId: cuidSchema,
+  name: z.string().trim().min(2).max(120),
+  sacCode: z.string().trim().min(2).max(12),
+  description: z.string().trim().min(2).max(160),
+  ratePerMinute: paiseSchema,
+  minimumBillableMinutes: z.number().int().min(1).max(1440),
+  roundUpToMinutes: z.number().int().min(1).max(240),
+  managerDiscountLimitPercent: z.number().int().min(0).max(100).default(10),
+  isActive: z.boolean().default(true),
+});
+
+export const adminServiceUpdateSchema = z.object({
+  branchId: cuidSchema.nullable().optional(),
+  taxRateId: cuidSchema.optional(),
+  name: z.string().trim().min(2).max(120).optional(),
+  sacCode: z.string().trim().min(2).max(12).optional(),
+  description: z.string().trim().min(2).max(160).optional(),
+  ratePerMinute: paiseSchema.optional(),
+  minimumBillableMinutes: z.number().int().min(1).max(1440).optional(),
+  roundUpToMinutes: z.number().int().min(1).max(240).optional(),
+  managerDiscountLimitPercent: z.number().int().min(0).max(100).optional(),
+  isActive: z.boolean().optional(),
+  reason: z.string().trim().max(240).optional(),
+});
+
+export const adminTaxRateUpdateSchema = z.object({
+  description: z.string().trim().min(2).max(160).optional(),
+  effectiveTo: z.string().datetime().nullable().optional(),
+  reason: z.string().trim().min(3).max(240),
+});

@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Building2,
+  BadgePercent,
   Gamepad2,
   IndianRupee,
   Package,
+  Timer,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -205,7 +207,7 @@ export function AdminShell() {
           Catalog, GST, pricing, stock, and resources. Sensitive changes are audited.
         </p>
       </section>
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         <AdminCard
           description="Create staff, reset passwords, deactivate access."
           href="/admin/users"
@@ -220,18 +222,32 @@ export function AdminShell() {
         />
         <AdminCard
           description="Pool tables and PS5 consoles."
+          href="/admin/resources"
           icon={<Gamepad2 className="h-5 w-5" />}
           title="Resources"
         />
         <AdminCard
           description="Food, drinks, services, and stock."
+          href="/admin/products"
           icon={<Package className="h-5 w-5" />}
-          title="Products/services"
+          title="Products"
         />
         <AdminCard
-          description="GST rates, pricing rules, and discounts."
+          description="Pool and PS5 rates and billing rules."
+          href="/admin/pricing"
+          icon={<Timer className="h-5 w-5" />}
+          title="Pricing"
+        />
+        <AdminCard
+          description="HSN/SAC rates with effective dates."
+          href="/admin/gst-rates"
           icon={<IndianRupee className="h-5 w-5" />}
-          title="GST/pricing"
+          title="GST rates"
+        />
+        <AdminCard
+          description="Happy hour and timed play discounts."
+          icon={<BadgePercent className="h-5 w-5" />}
+          title="Discounts"
         />
       </section>
       {error ? (

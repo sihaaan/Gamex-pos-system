@@ -29,6 +29,49 @@ export type ManagedBranchSummary = {
   isActive: boolean;
 };
 
+export type BranchScopedAdminRecord = {
+  id: string;
+  legalEntityId: string;
+  branchId: string | null;
+};
+
+export type AdminAssignableBranch = {
+  id: string;
+  legalEntityId: string;
+  isActive: boolean;
+};
+
+export type ResourceAvailabilitySummary = {
+  isActive: boolean;
+  status: "AVAILABLE" | "OCCUPIED" | "PAUSED" | "MAINTENANCE";
+};
+
+export type PosProductVisibilitySummary = {
+  isActive: boolean;
+  branchId: string | null;
+};
+
+export type PosResourceVisibilitySummary = {
+  isActive: boolean;
+  branchId: string;
+};
+
+export const adminCatalogAuditActions = [
+  "ADMIN_RESOURCE_CREATED",
+  "ADMIN_RESOURCE_EDITED",
+  "ADMIN_RESOURCE_DEACTIVATED",
+  "ADMIN_RESOURCE_REACTIVATED",
+  "ADMIN_PRODUCT_CREATED",
+  "ADMIN_PRODUCT_EDITED",
+  "ADMIN_PRODUCT_DEACTIVATED",
+  "ADMIN_PRODUCT_REACTIVATED",
+  "ADMIN_STOCK_ADJUSTED",
+  "ADMIN_SERVICE_CREATED",
+  "ADMIN_SERVICE_EDITED",
+  "ADMIN_GST_RATE_CREATED",
+  "ADMIN_GST_RATE_EDITED",
+] as const;
+
 export function requireAdminActor(actor: Pick<AdminActor, "role">): void {
   if (actor.role === "STAFF") {
     throw new AppError(
@@ -169,6 +212,163 @@ export function branchWhereForActor(actor: AdminActor): {
     );
   }
   return { legalEntityId: actor.legalEntityId, id: actor.branchId };
+}
+
+export function branchScopedWhereForActor(actor: AdminActor): {
+  legalEntityId: string;
+  branchId?: string;
+} {
+  requireAdminActor(actor);
+  if (actor.role === "OWNER") {
+    return { legalEntityId: actor.legalEntityId };
+  }
+  if (!actor.branchId) {
+    throw new AppError(
+      403,
+      "BRANCH_SCOPE_REQUIRED",
+      "Managers need an assigned branch.",
+    );
+  }
+  return { legalEntityId: actor.legalEntityId, branchId: actor.branchId };
+}
+
+export function branchOptionalCatalogWhereForActor(actor: AdminActor): {
+  legalEntityId: string;
+  OR?: Array<{ branchId: string | null }>;
+} {
+  requireAdminActor(actor);
+  if (actor.role === "OWNER") {
+    return { legalEntityId: actor.legalEntityId };
+  }
+  if (!actor.branchId) {
+    throw new AppError(
+      403,
+      "BRANCH_SCOPE_REQUIRED",
+      "Managers need an assigned branch.",
+    );
+  }
+  return {
+    legalEntityId: actor.legalEntityId,
+    OR: [{ branchId: actor.branchId }, { branchId: null }],
+  };
+}
+
+export function assertCanManageBranchScopedRecord(
+  actor: AdminActor,
+  record: BranchScopedAdminRecord | null,
+  targetLabel: string,
+): asserts record is BranchScopedAdminRecord {
+  requireAdminActor(actor);
+  if (!record || record.legalEntityId !== actor.legalEntityId) {
+    throw new AppError(404, "NOT_FOUND", `${targetLabel} was not found.`);
+  }
+
+  if (actor.role === "OWNER") {
+    return;
+  }
+
+  if (!actor.branchId || record.branchId !== actor.branchId) {
+    throw new AppError(
+      403,
+      "BRANCH_SCOPE_REQUIRED",
+      `Managers can manage ${targetLabel.toLowerCase()} in their assigned branch only.`,
+    );
+  }
+}
+
+export function assertCanAssignCatalogBranch(
+  actor: AdminActor,
+  branch: AdminAssignableBranch | null,
+  requestedBranchId: string | null | undefined,
+  options?: { allowGlobalForOwner?: boolean },
+): string | null {
+  requireAdminActor(actor);
+
+  if (actor.role === "MANAGER") {
+    if (!actor.branchId) {
+      throw new AppError(
+        403,
+        "BRANCH_SCOPE_REQUIRED",
+        "Managers need an assigned branch.",
+      );
+    }
+    return actor.branchId;
+  }
+
+  if (!requestedBranchId) {
+    if (options?.allowGlobalForOwner) {
+      return null;
+    }
+    throw new AppError(400, "BRANCH_REQUIRED", "Branch is required.");
+  }
+
+  if (!branch || branch.legalEntityId !== actor.legalEntityId) {
+    throw new AppError(404, "BRANCH_NOT_FOUND", "Branch was not found.");
+  }
+
+  if (!branch.isActive) {
+    throw new AppError(
+      409,
+      "BRANCH_INACTIVE",
+      "Use an active branch for this setup item.",
+    );
+  }
+
+  return branch.id;
+}
+
+export function assertResourceCanDeactivate(params: {
+  resource: ResourceAvailabilitySummary;
+  activeTimedLineCount: number;
+}): void {
+  if (
+    params.resource.status === "OCCUPIED" ||
+    params.resource.status === "PAUSED" ||
+    params.activeTimedLineCount > 0
+  ) {
+    throw new AppError(
+      409,
+      "RESOURCE_IN_USE",
+      "Stop or move running games before deactivating this resource.",
+    );
+  }
+}
+
+export function isProductVisibleInPos(
+  product: PosProductVisibilitySummary,
+  branchId: string,
+): boolean {
+  return product.isActive && (!product.branchId || product.branchId === branchId);
+}
+
+export function isResourceVisibleInPos(
+  resource: PosResourceVisibilitySummary,
+  branchId: string,
+): boolean {
+  return resource.isActive && resource.branchId === branchId;
+}
+
+export function calculateStockAdjustmentDelta(params: {
+  adjustmentType: "INCREASE" | "DECREASE" | "SET_COUNT";
+  quantity: number;
+  currentStock: number;
+}): number {
+  const quantityDelta =
+    params.adjustmentType === "INCREASE"
+      ? params.quantity
+      : params.adjustmentType === "DECREASE"
+        ? -params.quantity
+        : params.quantity - params.currentStock;
+
+  if (params.currentStock + quantityDelta < 0) {
+    throw new AppError(
+      409,
+      "NEGATIVE_STOCK",
+      "Stock adjustment cannot reduce stock below zero.",
+    );
+  }
+
+  return quantityDelta;
 }
 
 export function assertCanCreateBranch(actor: AdminActor): void {

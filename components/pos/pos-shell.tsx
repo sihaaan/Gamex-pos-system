@@ -235,7 +235,6 @@ export function PosShell() {
     useState<PostedInvoice | null>(null);
   const [lastShiftSummary, setLastShiftSummary] =
     useState<ShiftCloseSummary | null>(null);
-  const [closeShiftArmed, setCloseShiftArmed] = useState(false);
   const [stopConfirmLineId, setStopConfirmLineId] = useState("");
   const [actionPending, setActionPending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -271,7 +270,11 @@ export function PosShell() {
     setManagerOverrideId(null);
   }
 
-  async function refresh(options?: { branchId?: string; preferredTabId?: string }) {
+  async function refresh(options?: {
+    branchId?: string;
+    preferredTabId?: string;
+    clearSelection?: boolean;
+  }) {
     setLoading(true);
     const bootstrapResponse = await fetch("/api/pos/bootstrap", {
       cache: "no-store",
@@ -297,11 +300,12 @@ export function PosShell() {
     );
     const tabsData = (await tabsResponse.json()) as { tabs: Tab[] };
     const nextTabs = tabsData.tabs ?? [];
-    const preferredTabId = options?.preferredTabId ?? selectedTabId;
-    const nextSelectedTabId =
-      nextTabs.find((tab) => tab.id === preferredTabId)?.id ??
-      nextTabs[0]?.id ??
-      "";
+    const preferredTabId = options?.preferredTabId;
+    const nextSelectedTabId = options?.clearSelection
+      ? ""
+      : preferredTabId
+        ? nextTabs.find((tab) => tab.id === preferredTabId)?.id ?? ""
+        : nextTabs.find((tab) => tab.id === selectedTabId)?.id ?? "";
     setTabs(nextTabs);
     setSelectedTabId(nextSelectedTabId);
     setMovingTimedLineId((current) =>
@@ -463,9 +467,15 @@ export function PosShell() {
     ? staffPaymentStatusLabel({
         paymentTotal: paymentSummary.totalAmount,
         paymentBalance,
+        hasActiveTimedLines: quote.hasActiveTimedLines,
         formatAmount: formatPaise,
       })
     : "Payment not ready";
+  const paymentStatusTone = quote?.hasActiveTimedLines
+    ? "bg-amber-50 text-amber-950"
+    : paymentBalance === 0
+      ? "bg-emerald-50 text-emerald-900"
+      : "bg-amber-50 text-amber-950";
   const discountReasonMissing =
     requestedDiscountAmount > 0 && discountReason.trim().length === 0;
   const discountRequiresManagerApproval = Boolean(
@@ -485,6 +495,9 @@ export function PosShell() {
       paymentBalance === 0 &&
       !actionPending,
   );
+  const checkoutButtonLabel = quote?.hasActiveTimedLines
+    ? "Stop games to checkout"
+    : "Post checkout";
 
   async function postJson<TPayload>(
     path: string,
@@ -539,7 +552,6 @@ export function PosShell() {
       return;
     }
     setSelectedBranchId(currentBranchId);
-    setCloseShiftArmed(false);
     await postJson("/api/shifts/open", { branchId: currentBranchId }, {
       successMessage: "Shift opened.",
     });
@@ -550,10 +562,9 @@ export function PosShell() {
       setMessage("No active shift is open.");
       return;
     }
-    if (tabs.length > 0 && !closeShiftArmed) {
-      setCloseShiftArmed(true);
+    if (tabs.length > 0) {
       setMessage(
-        `${tabs.length} open tab${tabs.length === 1 ? "" : "s"} still need attention. Close shift again to confirm.`,
+        `Close blocked: finish checkout or void ${tabs.length} open bill${tabs.length === 1 ? "" : "s"} before closing shift.`,
       );
       return;
     }
@@ -564,7 +575,6 @@ export function PosShell() {
     );
     if (payload?.summary) {
       setLastShiftSummary(payload.summary);
-      setCloseShiftArmed(false);
     }
   }
 
@@ -716,7 +726,7 @@ export function PosShell() {
       setMovingTimedLineId("");
       setStopConfirmLineId(line.id);
       setMessage(
-        `Tap Confirm stop to stop ${line.resource?.name ?? "this game"}.`,
+        `Tap Confirm stop on ${line.resource?.name ?? "this game"} to end billing for that game.`,
       );
       return;
     }
@@ -856,6 +866,8 @@ export function PosShell() {
     );
     if (payload?.invoice) {
       setLastPostedInvoice(payload.invoice);
+      setSelectedTabId("");
+      setTabs((current) => current.filter((tab) => tab.id !== selectedTabId));
       resetPaymentDrafts();
       resetDiscountDraft();
       setQuote(null);
@@ -894,9 +906,8 @@ export function PosShell() {
     resetDiscountDraft();
     setBillDetailsOpen(false);
     setQuote(null);
-    setCloseShiftArmed(false);
     setMessage(null);
-    void refresh({ branchId, preferredTabId: "" });
+    void refresh({ branchId, clearSelection: true });
   }
 
   function updatePaymentDraft(
@@ -1024,17 +1035,13 @@ export function PosShell() {
               {actionPending ? <Badge tone="warning">Posting</Badge> : null}
               <Button
                 aria-label="Close operator shift"
-                className={
-                  closeShiftArmed
-                    ? "ml-2"
-                    : "ml-2 border-zinc-300 text-zinc-800 hover:bg-zinc-100"
-                }
-                variant={closeShiftArmed ? "danger" : "secondary"}
+                className="ml-2 border-zinc-300 text-zinc-800 hover:bg-zinc-100"
+                variant="secondary"
                 onClick={closeShift}
                 disabled={actionPending}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                {closeShiftArmed ? "Close anyway" : "Close shift"}
+                Close shift
               </Button>
             </>
           ) : (
@@ -1272,6 +1279,11 @@ export function PosShell() {
                       <span className="rounded-md bg-white/80 px-3 py-2 text-sm font-semibold text-emerald-950">
                         {startState}
                       </span>
+                      {selectedTab ? (
+                        <span className="rounded-md bg-white/70 px-3 py-2 text-xs font-medium text-emerald-900">
+                          Selected bill: {currentBillLabel}
+                        </span>
+                      ) : null}
                       {service ? (
                         <span className="text-sm text-zinc-700">
                           {cashierServiceName(service)} -{" "}
@@ -1509,6 +1521,9 @@ export function PosShell() {
                         {tab.customerLabel || tab.customerName || "Walk-in tab"}
                       </span>
                       <span className="flex items-center gap-2">
+                        {selectedTabId === tab.id ? (
+                          <Badge tone="success">Selected</Badge>
+                        ) : null}
                         {liveTimedCount > 0 ? (
                           <Badge tone="warning">{liveTimedCount} active</Badge>
                         ) : null}
@@ -1534,21 +1549,24 @@ export function PosShell() {
         </div>
 
         <aside className="min-h-0 lg:sticky lg:top-4">
-          <div className="flex min-h-0 flex-col rounded-lg border border-zinc-200 bg-white p-3 lg:h-[calc(100vh-15rem)] lg:min-h-[30rem]">
+          <div className="flex min-h-0 flex-col rounded-lg border border-zinc-200 bg-white p-3">
             <h2 className="text-lg font-semibold">Current bill</h2>
             {selectedTab ? (
               <div className="mt-3 flex min-h-0 flex-1 flex-col">
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="flex items-center gap-2 text-base font-semibold text-emerald-950">
-                        <UserRound className="h-4 w-4" />
-                        <span className="truncate">{currentBillLabel}</span>
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="flex min-w-0 items-center gap-2 text-base font-semibold text-emerald-950">
+                          <UserRound className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{currentBillLabel}</span>
+                        </p>
+                        <Badge tone="success">Selected bill</Badge>
+                      </div>
                       <p className="mt-1 text-xs text-emerald-800">
                         {activeTimedLines.length > 0
                           ? "Stop running games before checkout."
-                          : "Ready for checkout when payment matches"}
+                          : "New games and snacks add here."}
                       </p>
                     </div>
                     <div className="text-right">
@@ -1635,7 +1653,7 @@ export function PosShell() {
                     </div>
                   ) : null}
                 </div>
-                <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="mt-3 min-h-0 flex-1 pr-1">
                   <div className="grid gap-3">
                 {activeTimedLines.length > 0 || timedLines.length === 0 ? (
                 <div className="grid gap-2">
@@ -2073,7 +2091,7 @@ export function PosShell() {
                         ) : null}
                         {discountSummary ? (
                           <p className="text-xs text-zinc-600">
-                            Manual -{discountSummary} ·{" "}
+                            Manual -{discountSummary} -{" "}
                             {discountReason.trim() || "Reason required before checkout"}
                           </p>
                         ) : null}
@@ -2303,11 +2321,7 @@ export function PosShell() {
                       </Button>
                     </div>
                     <div
-                      className={`rounded-md px-3 py-2 text-sm font-semibold ${
-                        paymentBalance === 0
-                          ? "bg-emerald-50 text-emerald-900"
-                          : "bg-amber-50 text-amber-950"
-                      }`}
+                      className={`rounded-md px-3 py-2 text-sm font-semibold ${paymentStatusTone}`}
                     >
                       {paymentStatusLabel}
                     </div>
@@ -2316,9 +2330,10 @@ export function PosShell() {
                     className="min-h-12 text-base"
                     onClick={checkout}
                     disabled={!canPostCheckout}
+                    variant={canPostCheckout ? "primary" : "secondary"}
                   >
                     <CreditCard className="h-4 w-4" />
-                    Post checkout
+                    {checkoutButtonLabel}
                   </Button>
                 </div>
               </div>
@@ -2803,5 +2818,5 @@ function resourceStartState({
   if (!hasService) {
     return "Service missing";
   }
-  return currentBillLabel ? `Add to ${currentBillLabel}` : "Tap to start";
+  return currentBillLabel ? "Add to selected bill" : "Tap to start";
 }

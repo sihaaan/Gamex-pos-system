@@ -45,8 +45,13 @@ export function staffInvoiceLineLabel(line: StaffInvoiceLineDisplay): string {
 export function staffPaymentStatusLabel(params: {
   paymentTotal: number;
   paymentBalance: number;
+  hasActiveTimedLines: boolean;
   formatAmount: (amount: number) => string;
 }): string {
+  if (params.hasActiveTimedLines) {
+    return "Estimate only — stop games for final bill.";
+  }
+
   if (params.paymentBalance === 0) {
     return `Payment matched ${params.formatAmount(params.paymentTotal)}`;
   }

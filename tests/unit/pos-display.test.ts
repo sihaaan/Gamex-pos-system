@@ -72,6 +72,7 @@ describe("POS staff display helpers", () => {
       staffPaymentStatusLabel({
         paymentTotal: 12500,
         paymentBalance: 0,
+        hasActiveTimedLines: false,
         formatAmount,
       }),
     ).toBe("Payment matched INR 125");
@@ -80,6 +81,7 @@ describe("POS staff display helpers", () => {
       staffPaymentStatusLabel({
         paymentTotal: 10000,
         paymentBalance: 2500,
+        hasActiveTimedLines: false,
         formatAmount,
       }),
     ).toBe("Remaining INR 25");
@@ -88,9 +90,23 @@ describe("POS staff display helpers", () => {
       staffPaymentStatusLabel({
         paymentTotal: 15000,
         paymentBalance: -500,
+        hasActiveTimedLines: false,
         formatAmount,
       }),
     ).toBe("Overpaid INR 5");
+  });
+
+  it("keeps running game payments clearly provisional", () => {
+    const formatAmount = (amount: number) => `INR ${amount / 100}`;
+
+    expect(
+      staffPaymentStatusLabel({
+        paymentTotal: 12500,
+        paymentBalance: 0,
+        hasActiveTimedLines: true,
+        formatAmount,
+      }),
+    ).toBe("Estimate only — stop games for final bill.");
   });
 
   it("hides timed service catalog wording from POS service names", () => {

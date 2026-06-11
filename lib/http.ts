@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { ZodError, type ZodSchema } from "zod";
 
@@ -33,12 +34,14 @@ export function errorResponse(error: unknown): NextResponse {
     );
   }
 
-  console.error(error);
+  const requestId = randomUUID();
+  console.error(`[request:${requestId}]`, error);
   return NextResponse.json(
     {
       error: {
         code: "INTERNAL_SERVER_ERROR",
         message: "Something went wrong while processing the request.",
+        requestId,
       },
     },
     { status: 500 },

@@ -13,33 +13,65 @@ Production-grade, online-first POS MVP for GST-registered pool and gaming shops.
 - Docker and Docker Compose
 - Installable PWA shell with provisional offline draft storage
 
-## Setup
+## Local Setup
 
 ```bash
 cp .env.example .env
 npm install
-npx prisma generate
-npx prisma migrate dev
+npm run db:generate
+npm run db:migrate
 npm run db:seed
 npm run dev
 ```
 
-Default seeded password:
+The development seed creates demo legal entities, branches, owner/manager/staff users, resources, products, pricing, GST rates, invoice series, and chart-of-accounts rows. It is for local/demo use only.
+
+Demo seeded users use this local-only password:
 
 ```txt
 Gamex@12345
 ```
 
-Seeded users include owner, manager, and staff accounts for each sample legal entity, such as `gx-staff@gamex.local` and `ag-staff@gamex.local`.
+Do not use demo users or demo passwords in production.
 
 ## Environment
 
+Required:
+
 ```txt
+NODE_ENV=development
 DATABASE_URL=postgresql://user:password@host:5432/gamex_pos?schema=public
-MANAGER_DISCOUNT_LIMIT_PERCENT=10
 ```
 
-Use PostgreSQL in all environments. Do not use SQLite for production or billing tests.
+Required in production:
+
+```txt
+NODE_ENV=production
+SESSION_SECRET=<strong random secret>
+```
+
+Optional:
+
+```txt
+NEXT_PUBLIC_APP_URL=https://pos.example.com
+MANAGER_DISCOUNT_LIMIT_PERCENT=10
+SESSION_IDLE_TIMEOUT_MS=28800000
+SESSION_ABSOLUTE_TIMEOUT_MS=1209600000
+```
+
+Generate a production `SESSION_SECRET` with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Validate environment variables:
+
+```bash
+npm run env:check
+```
+
+Validation rejects missing production secrets, weak production `SESSION_SECRET` values, invalid timeout values, and non-HTTPS `NEXT_PUBLIC_APP_URL` values in production. Secret values are never printed.
 
 ## Database
 
@@ -61,11 +93,80 @@ Apply migrations in production:
 npm run db:deploy
 ```
 
-Seed development data:
+Seed development data only:
 
 ```bash
 npm run db:seed
 ```
+
+## Production Bootstrap
+
+For production, do not run `npm run db:seed`. After migrations, create the first real legal entity, branch, and owner with:
+
+```bash
+BOOTSTRAP_LEGAL_ENTITY_NAME="Real Business Name" \
+BOOTSTRAP_GSTIN="29XXXXXXXXXXZX" \
+BOOTSTRAP_LEGAL_ENTITY_ADDRESS="Registered address" \
+BOOTSTRAP_STATE_CODE="29" \
+BOOTSTRAP_BRANCH_NAME="Main Branch" \
+BOOTSTRAP_BRANCH_CODE="B01" \
+BOOTSTRAP_BRANCH_ADDRESS="Branch address" \
+BOOTSTRAP_OWNER_NAME="Owner Name" \
+BOOTSTRAP_OWNER_EMAIL="owner@example.com" \
+BOOTSTRAP_OWNER_PASSWORD="<strong temporary password>" \
+npm run bootstrap:owner
+```
+
+Then sign in as the owner, rotate the temporary password, and configure real resources, products, pricing, GST rates, invoice series, users, and branch settings from Admin.
+
+## Docker
+
+Local Docker:
+
+```bash
+docker compose up --build
+```
+
+Production-style example:
+
+```bash
+docker compose -f docker-compose.prod.example.yml up --build -d
+```
+
+The container entrypoint runs:
+
+```bash
+node scripts/validate-env.mjs
+npx prisma migrate deploy
+node server.js
+```
+
+Health check:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+The expected response includes `{"status":"ok","service":"gamex-pos"}`.
+
+## Production Deploy
+
+Use one Dockerized Next.js service and one managed PostgreSQL database.
+
+Minimum deployment flow:
+
+1. Provision PostgreSQL and restrict network access.
+2. Set production env vars in the hosting platform, not in source control.
+3. Build the Docker image.
+4. Run `npm run env:check`.
+5. Run `npx prisma migrate deploy`.
+6. Run `npm run bootstrap:owner` once for the first real tenant.
+7. Start the web service.
+8. Check `/api/health`.
+9. Confirm HTTPS and secure cookies.
+10. Configure daily database backups and test restore.
+
+See [Production Readiness](docs/production-readiness.md), [Backup and Restore](docs/backup-restore.md), [Security Checklist](docs/security-checklist.md), and [Pilot Checklist](docs/pilot-checklist.md).
 
 ## Tests
 
@@ -73,34 +174,11 @@ npm run db:seed
 npm run lint
 npm run typecheck
 npm run test
-npm run test:e2e
+npm run build
+npm run test:e2e -- --project=chromium
 ```
 
-Unit tests cover pricing, GST, invoice numbering, event-based duration, journals, shift summaries, tenant isolation, and offline policy. Integration-style tests cover start/stop/checkout and refund reversal logic.
-
-## Docker
-
-Local Docker deployment:
-
-```bash
-docker compose up --build
-```
-
-The web container runs `prisma migrate deploy` before starting Next.js.
-
-## Production Deploy
-
-Use one Dockerized Next.js service and one managed PostgreSQL database. Set `DATABASE_URL`, run migrations during deployment, enable HTTPS, and configure automated database backups.
-
-Recommended minimum production controls:
-
-- Daily PostgreSQL backups with restore drills
-- HTTPS only
-- `NODE_ENV=production`
-- secure cookie transport
-- restricted database network access
-- log retention for audit review
-- manager/owner MFA rollout when ready
+Unit tests cover pricing, GST, invoice numbering, event-based duration, journals, shift summaries, tenant isolation, offline policy, env validation, and error response safety. Integration-style tests cover start/stop/checkout and refund reversal logic.
 
 ## Operator Shift Workflow
 
@@ -128,4 +206,4 @@ Offline mode must not post official billing actions. Final checkout, GST invoice
 
 Invoices and invoice lines are immutable snapshots. Posted invoices are not recalculated from current product, service, pricing, or tax tables. Refunds and corrections create credit notes, refund payments, and reversing journal entries.
 
-Confirm exact GST classification, invoice series policy, e-invoicing applicability, and credit-note treatment with the shop's CA before production go-live.
+Confirm exact GST classification, invoice series policy, e-invoicing applicability, invoice format, rounding, and credit-note treatment with the shop's CA before production go-live.

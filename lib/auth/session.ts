@@ -2,13 +2,14 @@ import { createHash, randomBytes } from "crypto";
 import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sessionTimeoutsFromEnv } from "@/lib/env";
 import { AppError } from "@/lib/http";
 import type { UserRole } from "@/lib/generated/prisma/enums";
 
 export const SESSION_COOKIE_NAME = "gamex_session";
 
-const IDLE_TIMEOUT_MS = 8 * 60 * 60 * 1000;
-const ABSOLUTE_TIMEOUT_MS = 14 * 24 * 60 * 60 * 1000;
+const { idleTimeoutMs: IDLE_TIMEOUT_MS, absoluteTimeoutMs: ABSOLUTE_TIMEOUT_MS } =
+  sessionTimeoutsFromEnv();
 
 export type AuthContext = {
   sessionId: string;

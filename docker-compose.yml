@@ -22,6 +22,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://gamex:gamex_dev_password@postgres:5432/gamex_pos?schema=public
+      SESSION_SECRET: ${SESSION_SECRET:-L0calOnlyContainerSessionKey!RotateForRealUse123}
       MANAGER_DISCOUNT_LIMIT_PERCENT: "10"
     ports:
       - "3000:3000"

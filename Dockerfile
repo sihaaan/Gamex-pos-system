@@ -26,6 +26,8 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
 COPY --from=deps /app/node_modules ./node_modules
+RUN mkdir -p ./scripts
+COPY scripts/validate-env.mjs ./scripts/validate-env.mjs
 COPY docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 USER nextjs

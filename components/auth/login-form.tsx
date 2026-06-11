@@ -19,23 +19,28 @@ export function LoginForm() {
     setLoading(true);
     setError(null);
 
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    setLoading(false);
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      setError(payload?.error?.message ?? "Invalid email or password.");
-      return;
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        setError(payload?.error?.message ?? "Invalid email or password.");
+        return;
+      }
+
+      router.push("/pos");
+      router.refresh();
+    } catch {
+      setError("Connection error. Check the network and try again.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/pos");
-    router.refresh();
   }
 
   return (

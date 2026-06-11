@@ -5,6 +5,7 @@ export type TimedResourceForServiceSelection = {
 
 export type TimedServiceForSelection = {
   branchId?: string | null;
+  isActive?: boolean;
   name: string;
   description: string;
 };
@@ -17,6 +18,10 @@ export function findServiceForResource<TService extends TimedServiceForSelection
     resource.kind === "POOL_TABLE" ? ["pool"] : ["ps5", "console"];
 
   const matchingServices = services.filter((service) => {
+    if (service.isActive === false) {
+      return false;
+    }
+
     if (service.branchId && service.branchId !== resource.branchId) {
       return false;
     }

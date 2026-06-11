@@ -157,4 +157,26 @@ describe("POS staff display helpers", () => {
 
     expect(service?.branchId).toBeNull();
   });
+
+  it("ignores inactive branch timed pricing and falls back to active global pricing", () => {
+    const service = findServiceForResource(
+      { branchId: "branch-1", kind: "CONSOLE" },
+      [
+        {
+          branchId: "branch-1",
+          isActive: false,
+          name: "PS5 console",
+          description: "PS5 console timed play",
+        },
+        {
+          branchId: null,
+          isActive: true,
+          name: "PS5 console",
+          description: "PS5 console timed play",
+        },
+      ],
+    );
+
+    expect(service?.branchId).toBeNull();
+  });
 });

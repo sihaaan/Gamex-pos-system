@@ -43,7 +43,7 @@ const branchOneRecord: BranchScopedAdminRecord = {
 };
 
 describe("admin catalog management policy", () => {
-  it("blocks staff from admin catalog scopes", () => {
+  it("blocks staff from admin catalog and pricing API scopes", () => {
     expect(() => branchOptionalCatalogWhereForActor(staff)).toThrow(AppError);
   });
 

@@ -64,6 +64,7 @@ type Resource = {
 type Service = {
   id: string;
   branchId: string | null;
+  isActive: boolean;
   name: string;
   description: string;
   pricingRule: { ratePerMinute: number };

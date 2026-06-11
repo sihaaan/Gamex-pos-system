@@ -7,6 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { catalogBranchFilterMatches } from "@/lib/admin/catalog-filter";
+import {
+  activeBranchOverrideForService,
+  activeGlobalDefaultForService,
+  effectiveServiceForBranch,
+  pricingEditActionLabel,
+  pricingServiceFamilyKey,
+  pricingScopeLabel,
+} from "@/lib/admin/pricing-display";
 import { cn, formatPaise } from "@/lib/utils";
 
 type Role = "OWNER" | "MANAGER" | "STAFF";
@@ -102,6 +110,17 @@ export function AdminPricingShell() {
     currentUser?.role === "MANAGER"
       ? branches.find((branch) => branch.id === currentUser.branchId)
       : null;
+  const effectiveBranch = useMemo(() => {
+    if (branchFilter && branchFilter !== "GLOBAL") {
+      return branches.find((branch) => branch.id === branchFilter) ?? null;
+    }
+    if (currentUser?.role === "MANAGER" && currentUser.branchId) {
+      return managerBranch;
+    }
+    return null;
+  }, [branchFilter, branches, currentUser?.branchId, currentUser?.role, managerBranch]);
+  const effectiveBranchId = effectiveBranch?.id ?? null;
+  const currentRole = currentUser?.role ?? "STAFF";
 
   const filteredServices = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -186,7 +205,13 @@ export function AdminPricingShell() {
 
   function startEdit(service: ServiceRow) {
     if (currentUser?.role === "MANAGER" && service.branchId === null) {
-      setSelectedServiceId(null);
+      const existingBranchOverride = services.find(
+        (candidate) =>
+          candidate.branchId === currentUser.branchId &&
+          !candidate.isActive &&
+          pricingServiceFamilyKey(candidate) === pricingServiceFamilyKey(service),
+      );
+      setSelectedServiceId(existingBranchOverride?.id ?? null);
       setMessage(
         `${service.name} is set for all branches. Saving will create a ${
           managerBranch?.name ?? "branch"
@@ -283,6 +308,42 @@ export function AdminPricingShell() {
     }
   }
 
+  async function handleUseGlobalDefault(service: ServiceRow) {
+    if (!service.branchId) {
+      return;
+    }
+
+    setPending(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/services/${service.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isActive: false,
+          reason: "Use global default",
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(
+          await responseMessage(response, "Unable to use global default."),
+        );
+      }
+      await load();
+      if (selectedServiceId === service.id) {
+        setSelectedServiceId(null);
+      }
+      setMessage("Branch override deactivated. POS will use the global default.");
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Unable to use global default.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-4">
@@ -345,39 +406,112 @@ export function AdminPricingShell() {
             </label>
           </div>
           <div className="grid gap-2">
-            {filteredServices.map((service) => (
-              <button
-                key={service.id}
-                className={cn(
-                  "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-zinc-50",
-                  selectedServiceId === service.id
-                    ? "border-emerald-600 bg-emerald-50"
-                    : "border-zinc-200 bg-white",
-                )}
-                onClick={() => startEdit(service)}
-                type="button"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold">{service.name}</p>
-                    <p className="text-xs text-zinc-600">
-                      SAC {service.sacCode} - {service.branch?.name ?? "All branches"}
+            {filteredServices.map((service) => {
+              const globalDefault = activeGlobalDefaultForService(service, services);
+              const branchOverride = activeBranchOverrideForService(
+                service,
+                services,
+                effectiveBranchId,
+              );
+              const effectiveService = effectiveServiceForBranch(
+                service,
+                services,
+                effectiveBranchId,
+              );
+              const scopeLabel = pricingScopeLabel(service, effectiveBranchId);
+              const editLabel = pricingEditActionLabel({
+                service,
+                role: currentRole,
+                effectiveBranchId,
+              });
+              const canUseGlobalDefault =
+                Boolean(effectiveBranchId) &&
+                service.branchId === effectiveBranchId &&
+                service.isActive;
+
+              return (
+                <div
+                  key={service.id}
+                  className={cn(
+                    "grid gap-3 rounded-md border p-3 text-sm",
+                    selectedServiceId === service.id
+                      ? "border-emerald-600 bg-emerald-50"
+                      : "border-zinc-200 bg-white",
+                  )}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">{service.name}</p>
+                        <Badge tone={scopeBadgeTone(scopeLabel)}>
+                          {scopeLabel}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-600">
+                        SAC {service.sacCode} -{" "}
+                        {service.branch?.name ?? "All branches"}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge>{service.taxRate.gstRate}% GST</Badge>
+                      <Badge tone={service.isActive ? "success" : "danger"}>
+                        {service.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 rounded-md bg-zinc-50 p-3 text-xs text-zinc-700 sm:grid-cols-3">
+                    <p>
+                      <span className="font-semibold text-zinc-900">
+                        Global default:
+                      </span>{" "}
+                      {rateLabel(globalDefault)}
+                    </p>
+                    {effectiveBranch ? (
+                      <p>
+                        <span className="font-semibold text-zinc-900">
+                          Branch override:
+                        </span>{" "}
+                        {rateLabel(branchOverride)}
+                      </p>
+                    ) : null}
+                    <p>
+                      <span className="font-semibold text-zinc-900">
+                        {effectiveBranch
+                          ? `Effective for ${effectiveBranch.name}:`
+                          : "Effective POS rate:"}
+                      </span>{" "}
+                      {rateLabel(effectiveService)}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge>{formatPaise(service.pricingRule.ratePerMinute)}/min</Badge>
-                    <Badge>{service.taxRate.gstRate}% GST</Badge>
-                    <Badge tone={service.isActive ? "success" : "danger"}>
-                      {service.isActive ? "Active" : "Inactive"}
-                    </Badge>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-zinc-600">
+                      Minimum {service.pricingRule.minimumBillableMinutes} min,
+                      round to {service.pricingRule.roundUpToMinutes} min
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {canUseGlobalDefault ? (
+                        <Button
+                          disabled={pending}
+                          onClick={() => handleUseGlobalDefault(service)}
+                          variant="secondary"
+                        >
+                          Use global default
+                        </Button>
+                      ) : null}
+                      <Button
+                        disabled={pending}
+                        onClick={() => startEdit(service)}
+                        variant="secondary"
+                      >
+                        {editLabel}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                <p className="text-xs text-zinc-600">
-                  Minimum {service.pricingRule.minimumBillableMinutes} min, round to{" "}
-                  {service.pricingRule.roundUpToMinutes} min
-                </p>
-              </button>
-            ))}
+              );
+            })}
             {filteredServices.length === 0 ? (
               <p className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-600">
                 No timed services found.
@@ -597,6 +731,22 @@ function rupeeInputToPaise(value: string): number {
 
 function paiseToRupeeInput(value: number): string {
   return (value / 100).toFixed(2);
+}
+
+function scopeBadgeTone(
+  scopeLabel: ReturnType<typeof pricingScopeLabel>,
+): "neutral" | "success" | "warning" | "danger" {
+  if (scopeLabel === "Branch override") {
+    return "success";
+  }
+  if (scopeLabel === "Inherited from global default") {
+    return "warning";
+  }
+  return "neutral";
+}
+
+function rateLabel(service: Pick<ServiceRow, "pricingRule"> | null): string {
+  return service ? `${formatPaise(service.pricingRule.ratePerMinute)}/min` : "Not set";
 }
 
 function serviceBranchSort(

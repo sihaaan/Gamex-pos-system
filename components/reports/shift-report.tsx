@@ -49,14 +49,14 @@ export function ShiftReport() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
         <h1 className="text-xl font-semibold tracking-normal">Shift reports</h1>
-        <p className="mt-1 text-sm text-zinc-600">
+        <p className="mt-1 text-sm text-ink-muted">
           Branch reconciliation across sales, GST, tenders, refunds, voids, and warnings.
         </p>
       </section>
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div className="rounded-md border border-danger-line bg-danger-soft p-3 text-sm text-danger-ink">
           {error}
         </div>
       ) : null}
@@ -64,14 +64,14 @@ export function ShiftReport() {
         {summaries.map((summary) => (
           <article
             key={summary.id}
-            className="rounded-lg border border-zinc-200 bg-white p-4"
+            className="rounded-xl border border-line bg-surface p-4 shadow-sm"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold">
                   {summary.branch.name} · {summary.operatorShift.staffUser.name}
                 </h2>
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-ink-muted">
                   Closed {new Date(summary.generatedAt).toLocaleString("en-IN")}
                 </p>
               </div>
@@ -96,14 +96,14 @@ export function ShiftReport() {
               <Metric label="Voids" value={formatPaise(summary.voidedAmount)} />
             </dl>
             {summary.warnings.length > 0 ? (
-              <p className="mt-3 text-sm font-medium text-amber-900">
+              <p className="mt-3 text-sm font-medium text-warning-ink">
                 {summary.warnings.join(" ")}
               </p>
             ) : null}
           </article>
         ))}
         {summaries.length === 0 ? (
-          <p className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600">
+          <p className="rounded-xl border border-line bg-surface p-4 shadow-sm text-sm text-ink-muted">
             No closed shift summaries yet.
           </p>
         ) : null}
@@ -115,7 +115,7 @@ export function ShiftReport() {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-medium uppercase text-zinc-500">{label}</dt>
+      <dt className="text-xs font-medium uppercase text-ink-subtle">{label}</dt>
       <dd className="mt-1 font-semibold">{value}</dd>
     </div>
   );

@@ -289,13 +289,13 @@ export function AdminUsersShell() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-emerald-700" />
+            <Users className="h-5 w-5 text-success" />
             <h1 className="text-xl font-semibold tracking-normal">Users</h1>
           </div>
-          <p className="mt-1 text-sm text-zinc-600">
+          <p className="mt-1 text-sm text-ink-muted">
             Create staff logins, reset passwords, and deactivate access with audit logs.
           </p>
         </div>
@@ -305,18 +305,18 @@ export function AdminUsersShell() {
       </section>
 
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
+        <div className="rounded-md border border-success-line bg-success-soft p-3 text-sm font-medium text-success-ink">
           {message}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-900">
+        <div className="rounded-md border border-danger-line bg-danger-soft p-3 text-sm font-medium text-danger-ink">
           {error}
         </div>
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-base font-semibold">Same legal entity users</h2>
             <Button onClick={startCreate} variant="secondary">
@@ -329,18 +329,18 @@ export function AdminUsersShell() {
               <button
                 key={user.id}
                 className={cn(
-                  "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-zinc-50",
+                  "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-surface-muted",
                   selectedUserId === user.id
-                    ? "border-emerald-600 bg-emerald-50"
-                    : "border-zinc-200 bg-white",
+                    ? "border-brand bg-success-soft"
+                    : "border-line bg-surface",
                 )}
                 onClick={() => startEdit(user)}
                 type="button"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-zinc-950">{user.name}</p>
-                    <p className="text-xs text-zinc-600">{user.email}</p>
+                    <p className="font-semibold text-ink">{user.name}</p>
+                    <p className="text-xs text-ink-muted">{user.email}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Badge>{roleLabel(user.role)}</Badge>
@@ -349,24 +349,24 @@ export function AdminUsersShell() {
                     </Badge>
                   </div>
                 </div>
-                <dl className="grid gap-2 text-xs text-zinc-600 sm:grid-cols-3">
+                <dl className="grid gap-2 text-xs text-ink-muted sm:grid-cols-3">
                   <div>
-                    <dt className="font-medium text-zinc-500">Branch</dt>
+                    <dt className="font-medium text-ink-subtle">Branch</dt>
                     <dd>{formatBranch(user.branchId, branchById)}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium text-zinc-500">Last login</dt>
+                    <dt className="font-medium text-ink-subtle">Last login</dt>
                     <dd>{formatDate(user.lastLoginAt)}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium text-zinc-500">Created</dt>
+                    <dt className="font-medium text-ink-subtle">Created</dt>
                     <dd>{formatDate(user.createdAt)}</dd>
                   </div>
                 </dl>
               </button>
             ))}
             {users.length === 0 ? (
-              <p className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-600">
+              <p className="rounded-md border border-line p-4 text-sm text-ink-muted">
                 No users found for your scope.
               </p>
             ) : null}
@@ -374,15 +374,15 @@ export function AdminUsersShell() {
         </div>
 
         <aside className="grid gap-4">
-          <section className="rounded-lg border border-zinc-200 bg-white p-4">
+          <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <Pencil className="h-4 w-4 text-emerald-700" />
+              <Pencil className="h-4 w-4 text-success" />
               <h2 className="text-base font-semibold">
                 {selectedUser ? "Edit user" : "Create user"}
               </h2>
             </div>
             <div className="grid gap-3">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Name
                 <Input
                   value={draft.name}
@@ -394,7 +394,7 @@ export function AdminUsersShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Email
                 <Input
                   disabled={Boolean(selectedUser)}
@@ -408,10 +408,10 @@ export function AdminUsersShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Role
                 <select
-                  className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
+                  className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink"
                   value={draft.role}
                   onChange={(event) =>
                     setDraft((current) => ({
@@ -431,10 +431,10 @@ export function AdminUsersShell() {
                   ))}
                 </select>
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Branch
                 <select
-                  className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 disabled:bg-zinc-100"
+                  className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink disabled:bg-surface-strong"
                   disabled={branchLocked || draft.role === "OWNER"}
                   value={draft.branchId}
                   onChange={(event) =>
@@ -455,7 +455,7 @@ export function AdminUsersShell() {
                 </select>
               </label>
               {!selectedUser ? (
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                <label className="grid gap-1 text-xs font-medium text-ink-muted">
                   Temporary password
                   <Input
                     autoComplete="new-password"
@@ -470,7 +470,7 @@ export function AdminUsersShell() {
                   />
                 </label>
               ) : (
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                <label className="grid gap-1 text-xs font-medium text-ink-muted">
                   Audit reason
                   <Input
                     value={draft.reason}
@@ -483,7 +483,7 @@ export function AdminUsersShell() {
                   />
                 </label>
               )}
-              <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+              <label className="flex items-center gap-2 text-sm font-medium text-ink-muted">
                 <input
                   checked={draft.isActive}
                   onChange={(event) =>
@@ -503,13 +503,13 @@ export function AdminUsersShell() {
           </section>
 
           {selectedUser ? (
-            <section className="rounded-lg border border-zinc-200 bg-white p-4">
+            <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
               <div className="mb-3 flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-emerald-700" />
+                <KeyRound className="h-4 w-4 text-success" />
                 <h2 className="text-base font-semibold">Access actions</h2>
               </div>
               <div className="grid gap-3">
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                <label className="grid gap-1 text-xs font-medium text-ink-muted">
                   New temporary password
                   <Input
                     autoComplete="new-password"
@@ -518,7 +518,7 @@ export function AdminUsersShell() {
                     onChange={(event) => setResetPassword(event.target.value)}
                   />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                <label className="grid gap-1 text-xs font-medium text-ink-muted">
                   Reset reason
                   <Input
                     value={resetReason}

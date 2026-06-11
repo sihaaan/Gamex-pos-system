@@ -219,13 +219,13 @@ export function AdminResourcesShell() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <Gamepad2 className="h-5 w-5 text-emerald-700" />
+            <Gamepad2 className="h-5 w-5 text-success" />
             <h1 className="text-xl font-semibold tracking-normal">Resources</h1>
           </div>
-          <p className="mt-1 text-sm text-zinc-600">
+          <p className="mt-1 text-sm text-ink-muted">
             Manage pool tables and PS5 consoles available to the selling screen.
           </p>
         </div>
@@ -237,7 +237,7 @@ export function AdminResourcesShell() {
       <StatusMessages error={error} message={message} />
 
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-semibold">Branch resources</h2>
             <Button onClick={startCreate} variant="secondary">
@@ -246,7 +246,7 @@ export function AdminResourcesShell() {
             </Button>
           </div>
           <div className="mb-3 grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Search
               <Input
                 placeholder="Pool 1, PS5 1"
@@ -254,10 +254,10 @@ export function AdminResourcesShell() {
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Branch
               <select
-                className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 disabled:bg-zinc-100"
+                className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink disabled:bg-surface-strong"
                 disabled={!owner}
                 value={branchFilter}
                 onChange={(event) => setBranchFilter(event.target.value)}
@@ -276,10 +276,10 @@ export function AdminResourcesShell() {
               <button
                 key={resource.id}
                 className={cn(
-                  "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-zinc-50",
+                  "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-surface-muted",
                   selectedResourceId === resource.id
-                    ? "border-emerald-600 bg-emerald-50"
-                    : "border-zinc-200 bg-white",
+                    ? "border-brand bg-success-soft"
+                    : "border-line bg-surface",
                 )}
                 onClick={() => startEdit(resource)}
                 type="button"
@@ -287,7 +287,7 @@ export function AdminResourcesShell() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-semibold">{resource.name}</p>
-                    <p className="text-xs text-zinc-600">
+                    <p className="text-xs text-ink-muted">
                       {kindLabel(resource.kind)} - {resource.branch.name}
                     </p>
                   </div>
@@ -303,25 +303,25 @@ export function AdminResourcesShell() {
               </button>
             ))}
             {filteredResources.length === 0 ? (
-              <p className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-600">
+              <p className="rounded-md border border-line p-4 text-sm text-ink-muted">
                 No resources found.
               </p>
             ) : null}
           </div>
         </div>
 
-        <aside className="rounded-lg border border-zinc-200 bg-white p-4">
+        <aside className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
-            <Pencil className="h-4 w-4 text-emerald-700" />
+            <Pencil className="h-4 w-4 text-success" />
             <h2 className="text-base font-semibold">
               {selectedResource ? "Edit resource" : "Create resource"}
             </h2>
           </div>
           <div className="grid gap-3">
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Branch
               <select
-                className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 disabled:bg-zinc-100"
+                className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink disabled:bg-surface-strong"
                 disabled={!owner}
                 value={draft.branchId}
                 onChange={(event) =>
@@ -335,7 +335,7 @@ export function AdminResourcesShell() {
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Resource name
               <Input
                 value={draft.name}
@@ -344,10 +344,10 @@ export function AdminResourcesShell() {
                 }
               />
             </label>
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Type
               <select
-                className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
+                className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink"
                 value={draft.kind}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -361,7 +361,7 @@ export function AdminResourcesShell() {
               </select>
             </label>
             {selectedResource ? (
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Audit reason
                 <Input
                   value={draft.reason}
@@ -374,7 +374,7 @@ export function AdminResourcesShell() {
                 />
               </label>
             ) : null}
-            <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+            <label className="flex items-center gap-2 text-sm font-medium text-ink-muted">
               <input
                 checked={draft.isActive}
                 onChange={(event) =>
@@ -415,12 +415,12 @@ function StatusMessages({
   return (
     <>
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
+        <div className="rounded-md border border-success-line bg-success-soft p-3 text-sm font-medium text-success-ink">
           {message}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-900">
+        <div className="rounded-md border border-danger-line bg-danger-soft p-3 text-sm font-medium text-danger-ink">
           {error}
         </div>
       ) : null}

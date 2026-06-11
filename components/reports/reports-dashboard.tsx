@@ -292,11 +292,11 @@ export function ReportsDashboard() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold tracking-normal">Reports</h1>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-1 text-sm text-ink-muted">
               Daily control, GST summaries, tender reconciliation, and CA exports
               from posted invoices and refunds.
             </p>
@@ -308,11 +308,11 @@ export function ReportsDashboard() {
         </div>
       </section>
 
-      <section className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 lg:grid-cols-[1fr_1fr_auto]">
-        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+      <section className="grid gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm lg:grid-cols-[1fr_1fr_auto]">
+        <label className="grid gap-1 text-xs font-medium text-ink-muted">
           Date range
           <select
-            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
+            className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink"
             value={preset}
             onChange={(event) => setPreset(event.target.value)}
           >
@@ -325,19 +325,19 @@ export function ReportsDashboard() {
         </label>
         {preset === "custom" ? (
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               From
               <input
-                className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
+                className="min-h-10 rounded-md border border-line-strong px-3 text-sm"
                 onChange={(event) => setFrom(event.target.value)}
                 type="date"
                 value={from}
               />
             </label>
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               To
               <input
-                className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
+                className="min-h-10 rounded-md border border-line-strong px-3 text-sm"
                 onChange={(event) => setTo(event.target.value)}
                 type="date"
                 value={to}
@@ -345,7 +345,7 @@ export function ReportsDashboard() {
             </label>
           </div>
         ) : (
-          <div className="grid content-end text-sm text-zinc-600">
+          <div className="grid content-end text-sm text-ink-muted">
             {meta ? (
               <span>
                 {formatDate(meta.filters.from)} to {formatDate(meta.filters.to)}
@@ -353,10 +353,10 @@ export function ReportsDashboard() {
             ) : null}
           </div>
         )}
-        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+        <label className="grid gap-1 text-xs font-medium text-ink-muted">
           Branch
           <select
-            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 disabled:bg-zinc-100"
+            className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink disabled:bg-surface-strong"
             disabled={!owner}
             value={branchId}
             onChange={(event) => setBranchId(event.target.value)}
@@ -372,7 +372,7 @@ export function ReportsDashboard() {
       </section>
 
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-900">
+        <div className="rounded-md border border-danger-line bg-danger-soft p-3 text-sm font-medium text-danger-ink">
           {error}
         </div>
       ) : null}
@@ -383,8 +383,8 @@ export function ReportsDashboard() {
             key={tab.key}
             className={`rounded-md border px-3 py-2 text-sm font-medium ${
               activeTab === tab.key
-                ? "border-emerald-700 bg-emerald-50 text-emerald-900"
-                : "border-zinc-200 bg-white text-zinc-700"
+                ? "border-brand bg-success-soft text-success-ink"
+                : "border-line bg-surface text-ink-muted"
             }`}
             onClick={() => setActiveTab(tab.key)}
             type="button"
@@ -395,7 +395,7 @@ export function ReportsDashboard() {
       </section>
 
       {loading ? (
-        <section className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600">
+        <section className="rounded-xl border border-line bg-surface p-4 shadow-sm text-sm text-ink-muted">
           Loading reports...
         </section>
       ) : null}
@@ -545,7 +545,7 @@ function GstReport({ payload, query }: { payload: GstPayload; query: string }) {
       }
       title="GST / CA export"
     >
-      <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      <p className="rounded-md border border-warning-line bg-warning-soft p-3 text-sm text-warning-ink">
         {payload.note}
       </p>
       <SimpleTable
@@ -619,7 +619,7 @@ function ShiftReportPanel({
       title="Shifts"
     >
       {payload.openShifts.length > 0 ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="rounded-md border border-warning-line bg-warning-soft p-3 text-sm text-warning-ink">
           {payload.openShifts.length} open shift(s) in scope. Final totals are
           available after close.
         </div>
@@ -800,7 +800,7 @@ function ReportSection({
   title: string;
 }) {
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4">
+    <section className="grid gap-4 rounded-xl border border-line bg-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{title}</h2>
         {actions}
@@ -820,8 +820,8 @@ function SummaryGrid({ children }: { children: React.ReactNode }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <dt className="text-xs font-medium uppercase text-zinc-500">{label}</dt>
+    <div className="rounded-md border border-line bg-surface-muted p-3">
+      <dt className="text-xs font-medium uppercase text-ink-subtle">{label}</dt>
       <dd className="mt-1 text-base font-semibold">{value}</dd>
     </div>
   );
@@ -838,7 +838,7 @@ function SimpleTable({
 }) {
   if (rows.length === 0) {
     return (
-      <p className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-600">
+      <p className="rounded-md border border-line p-4 text-sm text-ink-muted">
         {empty}
       </p>
     );
@@ -848,7 +848,7 @@ function SimpleTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-collapse text-left text-sm">
         <thead>
-          <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+          <tr className="border-b border-line text-xs uppercase text-ink-subtle">
             {headers.map((header) => (
               <th key={header} className="px-3 py-2 font-semibold first:pl-0">
                 {header}
@@ -858,7 +858,7 @@ function SimpleTable({
         </thead>
         <tbody>
           {rows.map((row, index) => (
-            <tr key={index} className="border-b border-zinc-100">
+            <tr key={index} className="border-b border-line">
               {row.map((cell, cellIndex) => (
                 <td key={cellIndex} className="px-3 py-2 align-top first:pl-0">
                   {cell}
@@ -881,7 +881,7 @@ function ExportLink({
 }) {
   return (
     <a
-      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-zinc-100"
+      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-surface-strong"
       href={href}
     >
       <Download className="h-4 w-4" />

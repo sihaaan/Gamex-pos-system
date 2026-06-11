@@ -175,10 +175,10 @@ function InvoiceView({
   totals: TotalsRecord;
 }) {
   return (
-    <article className="invoice-print rounded-lg border border-zinc-200 bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none">
-      <header className="print-avoid-break grid gap-4 border-b border-zinc-200 pb-5 md:grid-cols-[1fr_auto]">
+    <article className="invoice-print rounded-lg border border-line bg-surface p-6 shadow-sm print:border-0 print:p-0 print:shadow-none">
+      <header className="print-avoid-break grid gap-4 border-b border-line pb-5 md:grid-cols-[1fr_auto]">
         <div>
-          <div className="flex items-center gap-2 text-emerald-800">
+          <div className="flex items-center gap-2 text-success">
             <ReceiptText className="h-5 w-5 print:hidden" />
             <span className="text-sm font-semibold uppercase tracking-wide">
               GST Tax Invoice
@@ -187,7 +187,7 @@ function InvoiceView({
           <h1 className="mt-3 text-3xl font-semibold tracking-normal">
             {invoice.legalEntityName}
           </h1>
-          <div className="mt-2 grid gap-1 text-sm text-zinc-700">
+          <div className="mt-2 grid gap-1 text-sm text-ink-muted">
             {invoice.legalEntityGstin ? <p>GSTIN {invoice.legalEntityGstin}</p> : null}
             <p>{invoice.legalEntityAddress}</p>
             <p>
@@ -197,38 +197,38 @@ function InvoiceView({
         </div>
         <div className="grid gap-2 text-sm md:min-w-72">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-zinc-600">Invoice no.</span>
+            <span className="text-ink-muted">Invoice no.</span>
             <span className="font-semibold">{invoice.invoiceNumber}</span>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-zinc-600">Date/time</span>
+            <span className="text-ink-muted">Date/time</span>
             <span className="font-medium">
               {formatInvoiceDateTime(invoice.postedAt)}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-zinc-600">Cashier</span>
+            <span className="text-ink-muted">Cashier</span>
             <span className="font-medium">{invoice.operatorShift.staffUser.name}</span>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-zinc-600">Status</span>
+            <span className="text-ink-muted">Status</span>
             <Badge tone={statusTone(displayStatus)}>{displayStatus}</Badge>
           </div>
         </div>
       </header>
 
-      <section className="print-avoid-break grid gap-4 border-b border-zinc-200 py-5 md:grid-cols-2">
+      <section className="print-avoid-break grid gap-4 border-b border-line py-5 md:grid-cols-2">
         <div>
           <h2 className="text-sm font-semibold">Customer</h2>
-          <div className="mt-2 grid gap-1 text-sm text-zinc-700">
-            <p className="font-medium text-zinc-950">{customerName}</p>
+          <div className="mt-2 grid gap-1 text-sm text-ink-muted">
+            <p className="font-medium text-ink">{customerName}</p>
             {invoice.customerPhone ? <p>{invoice.customerPhone}</p> : null}
             {invoice.customerGstin ? <p>GSTIN {invoice.customerGstin}</p> : null}
           </div>
         </div>
         <div>
           <h2 className="text-sm font-semibold">Payment</h2>
-          <div className="mt-2 grid gap-1 text-sm text-zinc-700">
+          <div className="mt-2 grid gap-1 text-sm text-ink-muted">
             <p>{invoice.payments.length > 1 ? "Mixed tender" : "Single tender"}</p>
             {invoice.payments.map((payment) => (
               <p key={payment.id}>{paymentDisplayText(payment)}</p>
@@ -240,7 +240,7 @@ function InvoiceView({
       <section className="overflow-x-auto py-5">
         <table className="w-full min-w-[760px] border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+            <tr className="border-b border-line text-xs uppercase text-ink-subtle">
               <th className="py-2 pr-3 font-semibold">Description</th>
               <th className="px-3 py-2 font-semibold">HSN/SAC</th>
               <th className="px-3 py-2 text-right font-semibold">Qty/Min</th>
@@ -252,9 +252,9 @@ function InvoiceView({
           </thead>
           <tbody>
             {invoice.lines.map((line) => (
-              <tr key={line.id} className="break-inside-avoid border-b border-zinc-100">
+              <tr key={line.id} className="break-inside-avoid border-b border-line">
                 <td className="py-3 pr-3 align-top">
-                  <p className="font-medium text-zinc-950">
+                  <p className="font-medium text-ink">
                     {customerInvoiceLineLabel(line)}
                   </p>
                 </td>
@@ -282,7 +282,7 @@ function InvoiceView({
         </table>
       </section>
 
-      <section className="print-avoid-break grid gap-5 border-t border-zinc-200 pt-5 md:grid-cols-[1fr_22rem]">
+      <section className="print-avoid-break grid gap-5 border-t border-line pt-5 md:grid-cols-[1fr_22rem]">
         <PaymentPanel payments={invoice.payments} paymentTotal={paymentTotal} />
         <TotalsPanel refundTotal={refundTotal} totals={totals} />
       </section>
@@ -310,16 +310,16 @@ function ReceiptView({
   totals: TotalsRecord;
 }) {
   return (
-    <article className="receipt-print mx-auto w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-5 text-sm shadow-sm print:border-0 print:p-0 print:shadow-none">
-      <header className="border-b border-dashed border-zinc-300 pb-3 text-center">
+    <article className="receipt-print mx-auto w-full max-w-sm rounded-lg border border-line bg-surface p-5 text-sm shadow-sm print:border-0 print:p-0 print:shadow-none">
+      <header className="border-b border-dashed border-line-strong pb-3 text-center">
         <p className="text-base font-semibold">{invoice.legalEntityName}</p>
-        <p className="text-xs text-zinc-600">{invoice.branchName}</p>
+        <p className="text-xs text-ink-muted">{invoice.branchName}</p>
         {invoice.legalEntityGstin ? (
-          <p className="text-xs text-zinc-600">GSTIN {invoice.legalEntityGstin}</p>
+          <p className="text-xs text-ink-muted">GSTIN {invoice.legalEntityGstin}</p>
         ) : null}
       </header>
 
-      <section className="grid gap-1 border-b border-dashed border-zinc-300 py-3 text-xs">
+      <section className="grid gap-1 border-b border-dashed border-line-strong py-3 text-xs">
         <ReceiptMeta label="Invoice" value={invoice.invoiceNumber} />
         <ReceiptMeta label="Date" value={formatInvoiceDateTime(invoice.postedAt)} />
         <ReceiptMeta label="Cashier" value={invoice.operatorShift.staffUser.name} />
@@ -327,7 +327,7 @@ function ReceiptView({
         <ReceiptMeta label="Status" value={displayStatus} />
       </section>
 
-      <section className="grid gap-2 border-b border-dashed border-zinc-300 py-3">
+      <section className="grid gap-2 border-b border-dashed border-line-strong py-3">
         {invoice.lines.map((line) => (
           <div key={line.id} className="grid gap-1">
             <div className="flex items-start justify-between gap-3">
@@ -336,7 +336,7 @@ function ReceiptView({
                 {formatPaise(line.totalAmount)}
               </span>
             </div>
-            <div className="flex justify-between gap-3 text-xs text-zinc-600">
+            <div className="flex justify-between gap-3 text-xs text-ink-muted">
               <span>
                 {line.lineKind === "SERVICE"
                   ? `${line.billableMinutes ?? 0} min`
@@ -349,7 +349,7 @@ function ReceiptView({
         ))}
       </section>
 
-      <section className="print-avoid-break grid gap-1 border-b border-dashed border-zinc-300 py-3 text-xs">
+      <section className="print-avoid-break grid gap-1 border-b border-dashed border-line-strong py-3 text-xs">
         <ReceiptTotal label="Taxable" value={totals.taxableValue} />
         {totals.discountAmount > 0 ? (
           <ReceiptTotal label="Discount" value={-totals.discountAmount} />
@@ -358,7 +358,7 @@ function ReceiptView({
         <ReceiptTotal label="SGST" value={totals.sgstAmount} />
         <ReceiptTotal label="IGST" value={totals.igstAmount} />
         <ReceiptTotal label="GST total" value={totals.gstTotal} />
-        <div className="mt-2 flex items-center justify-between gap-3 border-t border-dashed border-zinc-300 pt-2 text-base font-semibold">
+        <div className="mt-2 flex items-center justify-between gap-3 border-t border-dashed border-line-strong pt-2 text-base font-semibold">
           <span>Total</span>
           <span>{formatPaise(totals.totalAmount)}</span>
         </div>
@@ -367,7 +367,7 @@ function ReceiptView({
         ) : null}
       </section>
 
-      <section className="grid gap-1 border-b border-dashed border-zinc-300 py-3 text-xs">
+      <section className="grid gap-1 border-b border-dashed border-line-strong py-3 text-xs">
         {invoice.payments.map((payment) => (
           <ReceiptMeta
             key={payment.id}
@@ -399,12 +399,12 @@ function PaymentPanel({
         {payments.map((payment) => (
           <div
             key={payment.id}
-            className="flex items-center justify-between gap-3 rounded-md bg-zinc-50 px-3 py-2 print:bg-white"
+            className="flex items-center justify-between gap-3 rounded-md bg-surface-muted px-3 py-2 print:bg-surface"
           >
             <span>
               {tenderLabel(payment.tenderType)}
               {payment.reference ? (
-                <span className="ml-2 text-xs text-zinc-500">
+                <span className="ml-2 text-xs text-ink-subtle">
                   {payment.reference}
                 </span>
               ) : null}
@@ -438,7 +438,7 @@ function TotalsPanel({
       <InvoiceTotalRow label="SGST" value={totals.sgstAmount} />
       <InvoiceTotalRow label="IGST" value={totals.igstAmount} />
       <InvoiceTotalRow label="GST total" value={totals.gstTotal} />
-      <div className="flex items-center justify-between border-t border-zinc-200 pt-2 text-base font-semibold">
+      <div className="flex items-center justify-between border-t border-line pt-2 text-base font-semibold">
         <span>Final total</span>
         <span>{formatPaise(totals.totalAmount)}</span>
       </div>
@@ -456,7 +456,7 @@ function CreditNotePanel({
 }) {
   return (
     <section
-      className="print-avoid-break mt-5 border-t border-zinc-200 pt-5"
+      className="print-avoid-break mt-5 border-t border-line pt-5"
       id="credit-notes"
     >
       <h2 className="text-sm font-semibold">Refunds and credit notes</h2>
@@ -464,12 +464,12 @@ function CreditNotePanel({
         {creditNotes.map((creditNote) => (
           <div
             key={creditNote.id}
-            className="rounded-md border border-zinc-200 p-3 print:border-zinc-300"
+            className="rounded-md border border-line p-3 print:border-line-strong"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="font-semibold">{creditNote.creditNoteNumber}</p>
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-ink-muted">
                   {creditNote.reason} - {formatInvoiceDateTime(creditNote.postedAt)}
                 </p>
               </div>
@@ -503,7 +503,7 @@ function InvoiceTotalRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-zinc-600">{label}</span>
+      <span className="text-ink-muted">{label}</span>
       <span className="font-medium">{formatPaise(value)}</span>
     </div>
   );
@@ -512,7 +512,7 @@ function InvoiceTotalRow({
 function ReceiptMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-zinc-600">{label}</span>
+      <span className="text-ink-muted">{label}</span>
       <span className="text-right font-medium">{value}</span>
     </div>
   );
@@ -521,7 +521,7 @@ function ReceiptMeta({ label, value }: { label: string; value: string }) {
 function ReceiptTotal({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-zinc-600">{label}</span>
+      <span className="text-ink-muted">{label}</span>
       <span className="font-medium">{formatPaise(value)}</span>
     </div>
   );

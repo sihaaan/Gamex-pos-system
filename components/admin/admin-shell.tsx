@@ -201,9 +201,9 @@ export function AdminShell() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
         <h1 className="text-xl font-semibold tracking-normal">Admin</h1>
-        <p className="mt-1 text-sm text-zinc-600">
+        <p className="mt-1 text-sm text-ink-muted">
           Catalog, GST, pricing, stock, and resources. Sensitive changes are audited.
         </p>
       </section>
@@ -251,15 +251,15 @@ export function AdminShell() {
         />
       </section>
       {error ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+        <div className="rounded-md border border-warning-line bg-warning-soft p-3 text-sm text-warning-ink">
           {error}
         </div>
       ) : null}
       <section className="grid gap-4 lg:grid-cols-2">
         <Panel title="Discount rules">
-          <div className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+          <div className="grid gap-3 rounded-md border border-success-line bg-success-soft p-3">
             <div className="grid gap-2 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Name
                 <Input
                   value={discountDraft.name}
@@ -271,10 +271,10 @@ export function AdminShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Branch
                 <select
-                  className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
+                  className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink"
                   value={discountDraft.branchId}
                   onChange={(event) =>
                     setDiscountDraft((current) => ({
@@ -291,7 +291,7 @@ export function AdminShell() {
                   ))}
                 </select>
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Discount %
                 <Input
                   inputMode="numeric"
@@ -304,7 +304,7 @@ export function AdminShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Minimum minutes
                 <Input
                   inputMode="numeric"
@@ -317,7 +317,7 @@ export function AdminShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Start time
                 <Input
                   type="time"
@@ -330,7 +330,7 @@ export function AdminShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 End time
                 <Input
                   type="time"
@@ -345,15 +345,15 @@ export function AdminShell() {
               </label>
             </div>
             <div className="grid gap-1">
-              <span className="text-xs font-medium text-zinc-600">Days</span>
+              <span className="text-xs font-medium text-ink-muted">Days</span>
               <div className="flex flex-wrap gap-2">
                 {weekdays.map((day) => (
                   <button
                     key={day.value}
                     className={`min-h-9 rounded-md border px-3 text-sm font-medium ${
                       discountDraft.daysOfWeek.includes(day.value)
-                        ? "border-emerald-700 bg-emerald-700 text-white"
-                        : "border-zinc-300 bg-white text-zinc-700"
+                        ? "border-brand bg-brand text-white"
+                        : "border-line-strong bg-surface text-ink-muted"
                     }`}
                     onClick={() => toggleWeekday(day.value)}
                     type="button"
@@ -363,7 +363,7 @@ export function AdminShell() {
                 ))}
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+            <label className="flex items-center gap-2 text-sm font-medium text-ink-muted">
               <input
                 checked={discountDraft.isActive}
                 onChange={(event) =>
@@ -376,7 +376,7 @@ export function AdminShell() {
               />
               Active
             </label>
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Audit reason
               <Input
                 value={discountDraft.reason}
@@ -408,7 +408,7 @@ export function AdminShell() {
                 </Button>
               ) : null}
               {discountMessage ? (
-                <span className="text-sm font-medium text-zinc-700">
+                <span className="text-sm font-medium text-ink-muted">
                   {discountMessage}
                 </span>
               ) : null}
@@ -418,7 +418,7 @@ export function AdminShell() {
             <Row key={rule.id}>
               <div>
                 <p className="font-medium">{rule.name}</p>
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-ink-muted">
                   {rule.discountPercent}% after {rule.minimumBillableMinutes} min
                   {" - "}
                   {formatWeekdays(rule.daysOfWeek)} {minuteOfDayToTime(rule.startMinuteOfDay)}
@@ -438,7 +438,7 @@ export function AdminShell() {
             </Row>
           ))}
           {!catalog || catalog.discountRules.length > 0 ? null : (
-            <p className="text-sm text-zinc-600">No discount rules configured.</p>
+            <p className="text-sm text-ink-muted">No discount rules configured.</p>
           )}
         </Panel>
         <Panel title="Timed services">
@@ -446,7 +446,7 @@ export function AdminShell() {
             <Row key={service.id}>
               <div>
                 <p className="font-medium">{service.name}</p>
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-ink-muted">
                   SAC {service.sacCode} - GST {service.taxRate.gstRate}% - min{" "}
                   {service.pricingRule.minimumBillableMinutes} min
                 </p>
@@ -460,13 +460,13 @@ export function AdminShell() {
             <Row key={product.id}>
               <div>
                 <p className="font-medium">{product.name}</p>
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-ink-muted">
                   SKU {product.sku} - HSN {product.hsnCode}
                 </p>
               </div>
               <div className="text-right">
                 <p className="font-semibold">{formatPaise(product.unitPrice)}</p>
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-ink-muted">
                   Stock {product.stockQuantity}
                 </p>
               </div>
@@ -488,7 +488,7 @@ export function AdminShell() {
                 <p className="font-medium">
                   {taxRate.kind} {taxRate.code}
                 </p>
-                <p className="text-xs text-zinc-600">{taxRate.description}</p>
+                <p className="text-xs text-ink-muted">{taxRate.description}</p>
               </div>
               <Badge>{taxRate.gstRate}%</Badge>
             </Row>
@@ -513,18 +513,18 @@ function AdminCard({
   const content = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="grid h-10 w-10 place-items-center rounded-md bg-emerald-50 text-emerald-800">
+        <span className="grid h-10 w-10 place-items-center rounded-md bg-success-soft text-success">
           {icon}
         </span>
         {href ? (
-          <span className="text-xs font-semibold text-emerald-800">Open</span>
+          <span className="text-xs font-semibold text-success">Open</span>
         ) : (
-          <span className="text-xs font-semibold text-zinc-500">Later</span>
+          <span className="text-xs font-semibold text-ink-subtle">Later</span>
         )}
       </div>
       <div>
         <h2 className="font-semibold">{title}</h2>
-        <p className="mt-1 text-xs leading-5 text-zinc-600">{description}</p>
+        <p className="mt-1 text-xs leading-5 text-ink-muted">{description}</p>
       </div>
     </>
   );
@@ -532,7 +532,7 @@ function AdminCard({
   if (href) {
     return (
       <Link
-        className="grid min-h-36 gap-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm transition hover:border-emerald-500 hover:bg-emerald-50"
+        className="grid min-h-36 gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm text-sm transition hover:border-brand hover:bg-success-soft"
         href={href}
       >
         {content}
@@ -541,7 +541,7 @@ function AdminCard({
   }
 
   return (
-    <div className="grid min-h-36 gap-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm opacity-80">
+    <div className="grid min-h-36 gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm text-sm opacity-80">
       {content}
     </div>
   );
@@ -571,7 +571,7 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-4">
+    <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
       <h2 className="mb-3 text-base font-semibold">{title}</h2>
       <div className="grid gap-2">{children}</div>
     </section>
@@ -580,7 +580,7 @@ function Panel({
 
 function Row({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-14 items-center justify-between gap-3 rounded-md border border-zinc-200 px-3 py-2 text-sm">
+    <div className="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line px-3 py-2 text-sm">
       {children}
     </div>
   );

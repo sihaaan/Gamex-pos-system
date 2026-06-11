@@ -11,13 +11,13 @@ export function AccessDenied({
 }) {
   return (
     <main className="mx-auto grid min-h-[60vh] max-w-xl place-items-center px-4 py-10">
-      <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-amber-100 text-amber-900">
+      <section className="grid gap-4 rounded-lg border border-line bg-surface p-6 text-center shadow-sm">
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-warning-soft text-warning-ink">
           <Lock className="h-6 w-6" />
         </div>
         <div>
           <h1 className="text-xl font-semibold tracking-normal">{title}</h1>
-          <p className="mt-2 text-sm text-zinc-600">{message}</p>
+          <p className="mt-2 text-sm text-ink-muted">{message}</p>
         </div>
         <Button asChild>
           <Link href="/pos">Back to POS</Link>

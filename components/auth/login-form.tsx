@@ -57,7 +57,7 @@ export function LoginForm() {
           onChange={(event) => setPassword(event.target.value)}
         />
       </label>
-      {error ? <p className="text-sm font-medium text-red-700">{error}</p> : null}
+      {error ? <p className="text-sm font-medium text-danger">{error}</p> : null}
       <Button type="submit" disabled={loading}>
         <LogIn className="h-4 w-4" />
         {loading ? "Signing in" : "Sign in"}

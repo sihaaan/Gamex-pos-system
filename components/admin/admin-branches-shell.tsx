@@ -196,13 +196,13 @@ export function AdminBranchesShell() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-emerald-700" />
+            <Building2 className="h-5 w-5 text-success" />
             <h1 className="text-xl font-semibold tracking-normal">Branches</h1>
           </div>
-          <p className="mt-1 text-sm text-zinc-600">
+          <p className="mt-1 text-sm text-ink-muted">
             Maintain GST branch details and activation status for the current legal entity.
           </p>
         </div>
@@ -212,18 +212,18 @@ export function AdminBranchesShell() {
       </section>
 
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
+        <div className="rounded-md border border-success-line bg-success-soft p-3 text-sm font-medium text-success-ink">
           {message}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-900">
+        <div className="rounded-md border border-danger-line bg-danger-soft p-3 text-sm font-medium text-danger-ink">
           {error}
         </div>
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-base font-semibold">
               {owner ? "Legal entity branches" : "Assigned branch"}
@@ -240,18 +240,18 @@ export function AdminBranchesShell() {
               <button
                 key={branch.id}
                 className={cn(
-                  "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-zinc-50",
+                  "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-surface-muted",
                   selectedBranchId === branch.id
-                    ? "border-emerald-600 bg-emerald-50"
-                    : "border-zinc-200 bg-white",
+                    ? "border-brand bg-success-soft"
+                    : "border-line bg-surface",
                 )}
                 onClick={() => startEdit(branch)}
                 type="button"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-zinc-950">{branch.name}</p>
-                    <p className="text-xs text-zinc-600">
+                    <p className="font-semibold text-ink">{branch.name}</p>
+                    <p className="text-xs text-ink-muted">
                       {branch.code} - State {branch.stateCode}
                     </p>
                   </div>
@@ -262,44 +262,44 @@ export function AdminBranchesShell() {
                     </Badge>
                   </div>
                 </div>
-                <div className="flex items-start gap-2 text-xs text-zinc-600">
+                <div className="flex items-start gap-2 text-xs text-ink-muted">
                   <MapPin className="mt-0.5 h-3.5 w-3.5" />
                   <span>{branch.address}</span>
                 </div>
-                <dl className="grid gap-2 text-xs text-zinc-600 sm:grid-cols-2">
+                <dl className="grid gap-2 text-xs text-ink-muted sm:grid-cols-2">
                   <div>
-                    <dt className="font-medium text-zinc-500">Timezone</dt>
+                    <dt className="font-medium text-ink-subtle">Timezone</dt>
                     <dd>{branch.timezone}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium text-zinc-500">Updated</dt>
+                    <dt className="font-medium text-ink-subtle">Updated</dt>
                     <dd>{formatDate(branch.updatedAt)}</dd>
                   </div>
                 </dl>
               </button>
             ))}
             {branches.length === 0 ? (
-              <p className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-600">
+              <p className="rounded-md border border-line p-4 text-sm text-ink-muted">
                 No branches found for your scope.
               </p>
             ) : null}
           </div>
         </div>
 
-        <aside className="rounded-lg border border-zinc-200 bg-white p-4">
+        <aside className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
-            <Pencil className="h-4 w-4 text-emerald-700" />
+            <Pencil className="h-4 w-4 text-success" />
             <h2 className="text-base font-semibold">
               {selectedBranch ? "Edit branch" : "Create branch"}
             </h2>
           </div>
           {!owner && !selectedBranch ? (
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-ink-muted">
               Managers can edit their assigned branch. Owners can create new branches.
             </p>
           ) : (
             <div className="grid gap-3">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Name
                 <Input
                   value={draft.name}
@@ -311,7 +311,7 @@ export function AdminBranchesShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Branch code
                 <Input
                   disabled={!owner && Boolean(selectedBranch)}
@@ -324,7 +324,7 @@ export function AdminBranchesShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Address
                 <Input
                   value={draft.address}
@@ -337,7 +337,7 @@ export function AdminBranchesShell() {
                 />
               </label>
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                <label className="grid gap-1 text-xs font-medium text-ink-muted">
                   GST state code
                   <Input
                     inputMode="numeric"
@@ -350,7 +350,7 @@ export function AdminBranchesShell() {
                     }
                   />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                <label className="grid gap-1 text-xs font-medium text-ink-muted">
                   Timezone
                   <Input
                     value={draft.timezone}
@@ -364,7 +364,7 @@ export function AdminBranchesShell() {
                 </label>
               </div>
               {selectedBranch ? (
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                <label className="grid gap-1 text-xs font-medium text-ink-muted">
                   Audit reason
                   <Input
                     value={draft.reason}
@@ -377,7 +377,7 @@ export function AdminBranchesShell() {
                   />
                 </label>
               ) : null}
-              <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+              <label className="flex items-center gap-2 text-sm font-medium text-ink-muted">
                 <input
                   checked={draft.isActive}
                   onChange={(event) =>

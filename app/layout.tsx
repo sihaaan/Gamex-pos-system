@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { Gamepad2 } from "lucide-react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { MainNav } from "@/components/main-nav";
 import { PwaBoot } from "@/components/pwa/pwa-boot";
 import { getAuthContext } from "@/lib/auth/session";
 import { visibleNavItems } from "@/lib/navigation";
@@ -43,25 +45,21 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-zinc-50 text-zinc-950">
+      <body className="min-h-full bg-background text-ink">
         <PwaBoot />
-        <header className="border-b border-zinc-200 bg-white print:hidden">
+        <header className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur print:hidden">
           <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            <Link href="/pos" className="text-base font-semibold tracking-normal">
+            <Link
+              href="/pos"
+              className="flex items-center gap-2 text-base font-semibold tracking-normal text-ink"
+            >
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-white dark:text-zinc-950">
+                <Gamepad2 className="h-5 w-5" />
+              </span>
               GameX POS
             </Link>
             <div className="flex items-center gap-2">
-              <nav className="flex items-center gap-1 text-sm">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    className="rounded-md px-3 py-2 hover:bg-zinc-100"
-                    href={item.href}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
+              <MainNav items={navItems} />
               {auth ? <SignOutButton /> : null}
             </div>
           </div>

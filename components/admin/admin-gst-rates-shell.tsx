@@ -174,13 +174,13 @@ export function AdminGstRatesShell() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <IndianRupee className="h-5 w-5 text-emerald-700" />
+            <IndianRupee className="h-5 w-5 text-success" />
             <h1 className="text-xl font-semibold tracking-normal">GST rates</h1>
           </div>
-          <p className="mt-1 text-sm text-zinc-600">
+          <p className="mt-1 text-sm text-ink-muted">
             Manage HSN/SAC rates with effective dates for future billing.
           </p>
         </div>
@@ -192,7 +192,7 @@ export function AdminGstRatesShell() {
       <StatusMessages error={error} message={message} />
 
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-semibold">Tax rate catalog</h2>
             <Button onClick={startCreate} variant="secondary">
@@ -201,7 +201,7 @@ export function AdminGstRatesShell() {
             </Button>
           </div>
           <div className="mb-3 grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Search
               <Input
                 placeholder="HSN 2106, SAC 9996"
@@ -209,10 +209,10 @@ export function AdminGstRatesShell() {
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Status
               <select
-                className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
+                className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink"
                 value={filter}
                 onChange={(event) =>
                   setFilter(event.target.value as "ALL" | "ACTIVE" | "ENDED")
@@ -232,10 +232,10 @@ export function AdminGstRatesShell() {
                 <button
                   key={taxRate.id}
                   className={cn(
-                    "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-zinc-50",
+                    "grid gap-2 rounded-md border p-3 text-left text-sm transition hover:bg-surface-muted",
                     selectedTaxRateId === taxRate.id
-                      ? "border-emerald-600 bg-emerald-50"
-                      : "border-zinc-200 bg-white",
+                      ? "border-brand bg-success-soft"
+                      : "border-line bg-surface",
                   )}
                   onClick={() => startEdit(taxRate)}
                   type="button"
@@ -245,7 +245,7 @@ export function AdminGstRatesShell() {
                       <p className="font-semibold">
                         {taxRate.kind} {taxRate.code}
                       </p>
-                      <p className="text-xs text-zinc-600">{taxRate.description}</p>
+                      <p className="text-xs text-ink-muted">{taxRate.description}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Badge>{taxRate.gstRate}% GST</Badge>
@@ -254,7 +254,7 @@ export function AdminGstRatesShell() {
                       </Badge>
                     </div>
                   </div>
-                  <p className="text-xs text-zinc-600">
+                  <p className="text-xs text-ink-muted">
                     From {formatDate(taxRate.effectiveFrom)}
                     {taxRate.effectiveTo
                       ? ` to ${formatDate(taxRate.effectiveTo)}`
@@ -264,23 +264,23 @@ export function AdminGstRatesShell() {
               );
             })}
             {filteredTaxRates.length === 0 ? (
-              <p className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-600">
+              <p className="rounded-md border border-line p-4 text-sm text-ink-muted">
                 No GST rates found.
               </p>
             ) : null}
           </div>
         </div>
 
-        <aside className="rounded-lg border border-zinc-200 bg-white p-4">
+        <aside className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
-            <Pencil className="h-4 w-4 text-emerald-700" />
+            <Pencil className="h-4 w-4 text-success" />
             <h2 className="text-base font-semibold">
               {selectedTaxRate ? "Edit GST rate" : "Create GST rate"}
             </h2>
           </div>
           <div className="grid gap-3">
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Code
                 <Input
                   disabled={Boolean(selectedTaxRate)}
@@ -293,10 +293,10 @@ export function AdminGstRatesShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Kind
                 <select
-                  className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 disabled:bg-zinc-100"
+                  className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink disabled:bg-surface-strong"
                   disabled={Boolean(selectedTaxRate)}
                   value={draft.kind}
                   onChange={(event) =>
@@ -311,7 +311,7 @@ export function AdminGstRatesShell() {
                 </select>
               </label>
             </div>
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Description
               <Input
                 value={draft.description}
@@ -324,7 +324,7 @@ export function AdminGstRatesShell() {
               />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 GST %
                 <Input
                   disabled={Boolean(selectedTaxRate)}
@@ -338,7 +338,7 @@ export function AdminGstRatesShell() {
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
                 Effective from
                 <Input
                   disabled={Boolean(selectedTaxRate)}
@@ -354,11 +354,11 @@ export function AdminGstRatesShell() {
               </label>
             </div>
             {selectedTaxRate ? (
-              <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+              <p className="rounded-md border border-warning-line bg-warning-soft p-3 text-xs text-warning-ink">
                 Create a new GST rate for percentage or code changes. Existing rates can be renamed or end-dated.
               </p>
             ) : null}
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Effective to
               <Input
                 type="date"
@@ -371,7 +371,7 @@ export function AdminGstRatesShell() {
                 }
               />
             </label>
-            <label className="grid gap-1 text-xs font-medium text-zinc-600">
+            <label className="grid gap-1 text-xs font-medium text-ink-muted">
               Audit reason
               <Input
                 value={draft.reason}
@@ -408,12 +408,12 @@ function StatusMessages({
   return (
     <>
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
+        <div className="rounded-md border border-success-line bg-success-soft p-3 text-sm font-medium text-success-ink">
           {message}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-900">
+        <div className="rounded-md border border-danger-line bg-danger-soft p-3 text-sm font-medium text-danger-ink">
           {error}
         </div>
       ) : null}

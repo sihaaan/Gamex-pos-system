@@ -1,10 +1,12 @@
 "use client";
 
-import { CreditCard, Plus, Trash2, Wallet } from "lucide-react";
+import { Banknote, CreditCard, Plus, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import type { TenderType } from "./types";
+import { formatPaise } from "@/lib/utils";
+import { parseRupeeInputToPaise } from "./money";
+import type { PaymentDraft, TenderType } from "./types";
 import type { PosController } from "./use-pos-controller";
 
 export function PaymentPanel({ controller }: { controller: PosController }) {
@@ -72,6 +74,12 @@ export function PaymentPanel({ controller }: { controller: PosController }) {
                 />
               </label>
             </div>
+            {paymentDraft.tenderType === "CASH" ? (
+              <CashTenderRow
+                controller={controller}
+                paymentDraft={paymentDraft}
+              />
+            ) : null}
             {state.paymentDrafts.length > 1 ? (
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                 <Button
@@ -129,6 +137,22 @@ export function PaymentPanel({ controller }: { controller: PosController }) {
         >
           {paymentStatusLabel}
         </div>
+        {derived.paymentSummary.hasShortCashTender ? (
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm font-medium text-danger-ink">
+            Cash tendered is less than the cash amount.
+          </p>
+        ) : null}
+        {derived.paymentSummary.changeDueAmount > 0 ? (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-info-line bg-info-soft px-3 py-2">
+            <span className="flex items-center gap-2 text-sm font-semibold text-info-ink">
+              <Banknote className="h-4 w-4" />
+              Change due
+            </span>
+            <span className="text-lg font-semibold tabular-nums text-info-ink">
+              {formatPaise(derived.paymentSummary.changeDueAmount)}
+            </span>
+          </div>
+        ) : null}
       </div>
       <Button
         className="min-h-12 text-base"
@@ -139,6 +163,65 @@ export function PaymentPanel({ controller }: { controller: PosController }) {
         <CreditCard className="h-4 w-4" />
         {derived.checkoutButtonLabel}
       </Button>
+    </div>
+  );
+}
+
+function CashTenderRow({
+  controller,
+  paymentDraft,
+}: {
+  controller: PosController;
+  paymentDraft: PaymentDraft;
+}) {
+  const { state, actions } = controller;
+  const cashAmount = parseRupeeInputToPaise(paymentDraft.amount);
+  const tenderedAmount =
+    paymentDraft.tendered.trim() === ""
+      ? null
+      : parseRupeeInputToPaise(paymentDraft.tendered);
+  const change =
+    cashAmount !== null && tenderedAmount !== null
+      ? tenderedAmount - cashAmount
+      : null;
+
+  return (
+    <div className="grid gap-1 rounded-md bg-surface-muted p-2">
+      <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
+        <label className="grid gap-1 text-xs font-medium text-ink-muted">
+          Tendered amount (cash given by customer)
+          <Input
+            className="min-h-11 tabular-nums"
+            disabled={state.actionPending}
+            inputMode="decimal"
+            placeholder={paymentDraft.amount || "500"}
+            value={paymentDraft.tendered}
+            onChange={(event) =>
+              actions.dispatch({
+                type: "PAYMENT_DRAFT_UPDATED",
+                paymentDraftId: paymentDraft.id,
+                patch: { tendered: event.target.value },
+              })
+            }
+          />
+        </label>
+        <div className="grid content-end gap-1 text-xs font-medium text-ink-muted">
+          Change
+          <p
+            className={`flex min-h-11 items-center rounded-md px-3 text-sm font-semibold tabular-nums ${
+              change !== null && change < 0
+                ? "bg-danger-soft text-danger-ink"
+                : "bg-surface text-ink"
+            }`}
+          >
+            {change === null ? "--" : formatPaise(Math.max(change, 0))}
+          </p>
+        </div>
+      </div>
+      <p className="text-xs text-ink-subtle">
+        Leave blank for exact cash. Only the bill amount is recorded on the
+        invoice; tendered and change go to the payment record.
+      </p>
     </div>
   );
 }

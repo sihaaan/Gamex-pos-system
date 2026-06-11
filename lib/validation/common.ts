@@ -19,11 +19,33 @@ export const tenderSchema = z.enum([
   "CARD_RECORDED",
 ]);
 
-export const paymentInputSchema = z.object({
-  tenderType: tenderSchema,
-  amount: paiseSchema,
-  reference: z.string().trim().max(120).optional(),
-});
+export const paymentInputSchema = z
+  .object({
+    tenderType: tenderSchema,
+    amount: paiseSchema,
+    reference: z.string().trim().max(120).optional(),
+    tenderedAmount: paiseSchema.optional(),
+  })
+  .superRefine((payment, context) => {
+    if (payment.tenderedAmount === undefined) {
+      return;
+    }
+    if (payment.tenderType !== "CASH") {
+      context.addIssue({
+        code: "custom",
+        message: "Tendered amount is only recorded for cash payments.",
+        path: ["tenderedAmount"],
+      });
+      return;
+    }
+    if (payment.tenderedAmount < payment.amount) {
+      context.addIssue({
+        code: "custom",
+        message: "Cash tendered must cover the cash amount.",
+        path: ["tenderedAmount"],
+      });
+    }
+  });
 
 export const branchScopedSchema = z.object({
   branchId: cuidSchema,

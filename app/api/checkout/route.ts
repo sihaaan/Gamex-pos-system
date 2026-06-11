@@ -321,6 +321,15 @@ export async function POST(request: Request): Promise<NextResponse> {
           tenderType: payment.tenderType,
           amount: payment.amount,
           reference: payment.reference,
+          // The payment amount stays equal to the invoiced portion; cash
+          // overpayment is recorded as auditable metadata only.
+          metadata:
+            payment.tenderedAmount === undefined
+              ? undefined
+              : {
+                  tenderedAmount: payment.tenderedAmount,
+                  changeAmount: payment.tenderedAmount - payment.amount,
+                },
         })),
       });
 

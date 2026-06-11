@@ -47,10 +47,25 @@ test("full staff sale posts Pool, PS5, snack, PhonePe payment, invoice, and shif
   await page.waitForURL("**/invoices/**");
   await expect(page.getByText("Pool play - 10 min")).toBeVisible();
   await expect(page.getByText("PS5 play - 10 min")).toBeVisible();
-  await expect(page.getByText("Chips pack")).toBeVisible();
-  await expect(page.getByText("UPI - PhonePe")).toBeVisible();
+  await expect(page.getByText("Chips pack x1")).toBeVisible();
+  await expect(page.getByText("UPI - PhonePe", { exact: true })).toBeVisible();
+  await expect(page.getByText("GST Tax Invoice")).toBeVisible();
+  await expect(page.getByText("Final total")).toBeVisible();
+  await expect(page.getByText("Discount")).toBeVisible();
+  await expect(page.getByText("Paid")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("MIN_10_ROUND");
+  await expect(page.getByRole("button", { name: "Print invoice" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Receipt view" })).toBeVisible();
 
-  await page.getByRole("main").getByRole("link", { name: "POS" }).click();
+  await page.getByRole("link", { name: "Receipt view" }).click();
+  await expect(page.getByText("Thank you for playing")).toBeVisible();
+  await expect(page.getByText("Pool play - 10 min")).toBeVisible();
+  await expect(page.getByText("PS5 play - 10 min")).toBeVisible();
+  await expect(page.getByText("Chips pack x1")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Print receipt" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "GST invoice" })).toBeVisible();
+
+  await page.getByRole("main").getByRole("link", { name: "Back to POS" }).click();
   await page.waitForURL("**/pos");
   await expect(
     page.getByText("Create or select a customer bill to start selling."),

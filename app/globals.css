@@ -30,7 +30,50 @@ textarea {
 }
 
 @media print {
+  @page {
+    margin: 12mm;
+  }
+
+  * {
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
   body {
     background: white;
+  }
+
+  .print-controls,
+  .print-controls * {
+    display: none !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .invoice-print {
+    width: 100%;
+  }
+
+  .receipt-print {
+    width: 80mm;
+    max-width: 80mm;
+    margin: 0 auto;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .receipt-print table,
+  .invoice-print table {
+    break-inside: auto;
+  }
+
+  .receipt-print tr,
+  .invoice-print tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

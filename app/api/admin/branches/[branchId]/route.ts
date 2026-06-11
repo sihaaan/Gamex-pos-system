@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requestFingerprint } from "@/lib/auth/session";
 import { assertCanManageBranch } from "@/lib/admin/management";
 import { errorResponse, parseJson } from "@/lib/http";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { adminBranchUpdateSchema } from "@/lib/validation/common";
 
@@ -29,6 +30,7 @@ export async function PATCH(
         stateCode: true,
         timezone: true,
         isActive: true,
+        floorLayout: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -77,6 +79,12 @@ export async function PATCH(
         stateCode: input.stateCode,
         timezone: input.timezone,
         isActive: input.isActive,
+        floorLayout:
+          input.floorLayout === undefined
+            ? undefined
+            : input.floorLayout === null
+              ? Prisma.DbNull
+              : input.floorLayout,
       },
       select: {
         id: true,
@@ -87,6 +95,7 @@ export async function PATCH(
         stateCode: true,
         timezone: true,
         isActive: true,
+        floorLayout: true,
         createdAt: true,
         updatedAt: true,
         resources: {

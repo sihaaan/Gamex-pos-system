@@ -22,6 +22,7 @@ export async function GET(): Promise<NextResponse> {
         stateCode: true,
         timezone: true,
         isActive: true,
+        floorLayout: true,
         createdAt: true,
         updatedAt: true,
         resources: {

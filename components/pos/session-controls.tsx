@@ -7,16 +7,21 @@ import {
   CirclePause,
   CirclePlay,
   Clock,
+  LayoutGrid,
+  Map,
   Monitor,
   Square,
   UserRound,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatPaise } from "@/lib/utils";
+import { parseFloorLayout } from "@/lib/floor-layout";
 import { findServiceForResource } from "@/lib/pos/service-selection";
 import { staffServiceName } from "@/lib/pos/display";
+import { FloorMap } from "./floor-map";
 import {
   billLabel,
   cashierServiceName,
@@ -27,6 +32,8 @@ import {
 } from "./timing";
 import type { PosController } from "./use-pos-controller";
 import type { Resource, TimedLine } from "./types";
+
+const FLOOR_VIEW_STORAGE_KEY = "gamex-pos-floor-view";
 
 export function SessionControls({
   controller,
@@ -40,7 +47,37 @@ export function SessionControls({
     canUseResourceBoard,
     selectedTab,
     currentBillLabel,
+    currentBranchId,
   } = derived;
+
+  const floorLayout = useMemo(() => {
+    const branch = state.bootstrap?.branches.find(
+      (candidate) => candidate.id === currentBranchId,
+    );
+    const layout = parseFloorLayout(branch?.floorLayout);
+    return layout && layout.items.length > 0 ? layout : null;
+  }, [state.bootstrap?.branches, currentBranchId]);
+
+  const [floorViewPreferred, setFloorViewPreferred] = useState(true);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const stored = window.localStorage.getItem(FLOOR_VIEW_STORAGE_KEY);
+      if (stored !== null) {
+        setFloorViewPreferred(stored === "true");
+      }
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  const showFloorView = Boolean(floorLayout) && floorViewPreferred;
+
+  function toggleFloorView() {
+    setFloorViewPreferred((current) => {
+      const next = !current;
+      window.localStorage.setItem(FLOOR_VIEW_STORAGE_KEY, String(next));
+      return next;
+    });
+  }
 
   return (
     <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
@@ -52,7 +89,29 @@ export function SessionControls({
             current bill.
           </p>
         </div>
+        {floorLayout ? (
+          <Button
+            aria-pressed={showFloorView}
+            onClick={toggleFloorView}
+            variant="secondary"
+          >
+            {showFloorView ? (
+              <>
+                <LayoutGrid className="h-4 w-4" />
+                Grid view
+              </>
+            ) : (
+              <>
+                <Map className="h-4 w-4" />
+                Floor view
+              </>
+            )}
+          </Button>
+        ) : null}
       </div>
+      {showFloorView && floorLayout ? (
+        <FloorMap controller={controller} layout={floorLayout} />
+      ) : (
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {branchResources.map((resource) => {
           const service = findServiceForResource(
@@ -221,6 +280,7 @@ export function SessionControls({
           </p>
         ) : null}
       </div>
+      )}
     </div>
   );
 }

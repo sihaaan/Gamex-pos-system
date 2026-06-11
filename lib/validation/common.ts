@@ -199,6 +199,43 @@ export const adminStateChangeSchema = z.object({
   reason: z.string().trim().min(3).max(240).optional(),
 });
 
+export const floorLayoutItemSchema = z.object({
+  resourceId: cuidSchema,
+  x: z.number().int().min(0).max(99),
+  y: z.number().int().min(0).max(99),
+  w: z.number().int().min(1).max(20),
+  h: z.number().int().min(1).max(20),
+  rotation: z.number().int().min(0).max(359).optional(),
+});
+
+export const floorLayoutSchema = z
+  .object({
+    width: z.number().int().min(2).max(40),
+    height: z.number().int().min(2).max(40),
+    items: z.array(floorLayoutItemSchema).max(200),
+  })
+  .superRefine((layout, context) => {
+    const seenResourceIds = new Set<string>();
+    layout.items.forEach((item, index) => {
+      if (seenResourceIds.has(item.resourceId)) {
+        context.addIssue({
+          code: "custom",
+          message: "Each resource can only be placed once.",
+          path: ["items", index, "resourceId"],
+        });
+      }
+      seenResourceIds.add(item.resourceId);
+
+      if (item.x + item.w > layout.width || item.y + item.h > layout.height) {
+        context.addIssue({
+          code: "custom",
+          message: "Placement must fit inside the room.",
+          path: ["items", index],
+        });
+      }
+    });
+  });
+
 const branchBaseSchema = z.object({
   name: z.string().trim().min(2).max(120),
   code: z.string().trim().min(2).max(12).toUpperCase(),
@@ -211,6 +248,7 @@ const branchBaseSchema = z.object({
 export const adminBranchCreateSchema = branchBaseSchema;
 
 export const adminBranchUpdateSchema = branchBaseSchema.partial().extend({
+  floorLayout: floorLayoutSchema.nullable().optional(),
   reason: z.string().trim().max(240).optional(),
 });
 

@@ -1,23 +1,11 @@
-export type FloorLayoutItem = {
-  resourceId: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  rotation?: number;
-};
-
-export type FloorLayout = {
-  width: number;
-  height: number;
-  items: FloorLayoutItem[];
-};
+export type { FloorLayout, FloorLayoutItem } from "@/lib/floor-layout";
 
 export type Branch = {
   id: string;
   name: string;
   code: string;
-  floorLayout?: FloorLayout | null;
+  /** Raw JSON from the API; parse with parseFloorLayout before use. */
+  floorLayout?: unknown;
 };
 
 export type Resource = {

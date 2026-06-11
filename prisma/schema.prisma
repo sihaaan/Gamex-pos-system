@@ -173,6 +173,7 @@ model Branch {
   stateCode     String   @map("state_code")
   timezone      String   @default("Asia/Kolkata")
   isActive      Boolean  @default(true) @map("is_active")
+  floorLayout   Json?    @map("floor_layout")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

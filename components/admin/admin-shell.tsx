@@ -7,6 +7,7 @@ import {
   BadgePercent,
   Gamepad2,
   IndianRupee,
+  Map as MapIcon,
   Package,
   Timer,
   Users,
@@ -243,6 +244,12 @@ export function AdminShell() {
           href="/admin/gst-rates"
           icon={<IndianRupee className="h-5 w-5" />}
           title="GST rates"
+        />
+        <AdminCard
+          description="Arrange tables and consoles for the POS floor view."
+          href="/admin/floor-map"
+          icon={<MapIcon className="h-5 w-5" />}
+          title="Floor Map"
         />
         <AdminCard
           description="Happy hour and timed play discounts."

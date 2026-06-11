@@ -1,13 +1,17 @@
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
-type BadgeTone = "neutral" | "success" | "warning" | "danger";
+type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
 
 const tones: Record<BadgeTone, string> = {
-  neutral: "bg-zinc-100 text-zinc-700",
-  success: "bg-emerald-100 text-emerald-800",
-  warning: "bg-amber-100 text-amber-900",
-  danger: "bg-red-100 text-red-800",
+  neutral: "bg-surface-strong text-ink-muted",
+  success:
+    "bg-success-soft text-success-ink ring-1 ring-inset ring-success-line/60",
+  warning:
+    "bg-warning-soft text-warning-ink ring-1 ring-inset ring-warning-line/60",
+  danger:
+    "bg-danger-soft text-danger-ink ring-1 ring-inset ring-danger-line/60",
+  info: "bg-info-soft text-info-ink ring-1 ring-inset ring-info-line/60",
 };
 
 export function Badge({

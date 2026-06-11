@@ -166,7 +166,7 @@ Minimum deployment flow:
 9. Confirm HTTPS and secure cookies.
 10. Configure daily database backups and test restore.
 
-See [Production Readiness](docs/production-readiness.md), [Backup and Restore](docs/backup-restore.md), [Security Checklist](docs/security-checklist.md), and [Pilot Checklist](docs/pilot-checklist.md).
+For an operator-ready staging setup, follow [Staging Pilot Runbook](docs/staging-pilot-runbook.md). Also see [Production Readiness](docs/production-readiness.md), [Backup and Restore](docs/backup-restore.md), [Security Checklist](docs/security-checklist.md), and [Pilot Checklist](docs/pilot-checklist.md).
 
 ## Tests
 

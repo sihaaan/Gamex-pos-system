@@ -40,6 +40,8 @@ Confirm these before real GST use:
 
 ## Deployment Checklist
 
+For a step-by-step staging/production-like rehearsal, use [Staging Pilot Runbook](staging-pilot-runbook.md).
+
 1. Provision PostgreSQL.
 2. Configure backup storage.
 3. Set production env vars.

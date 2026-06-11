@@ -2,6 +2,20 @@
 
 Production-grade, online-first POS MVP for GST-registered pool and gaming shops. The system is POS-first: operator shifts, running tabs, timed services, retail sales, GST invoices, refunds/credit notes, basic stock, reports, and a hidden double-entry journal engine.
 
+## Screenshots
+
+| Screen | Preview |
+| --- | --- |
+| Login | ![Login](docs/screenshots/login.png) |
+| POS (active tab) | ![POS with an active tab](docs/screenshots/pos.png) |
+| Floor Map | ![Interactive floor map](docs/screenshots/floor-map.png) |
+| Checkout | ![Checkout and payment](docs/screenshots/checkout.png) |
+| Invoice | ![GST invoice](docs/screenshots/invoice.png) |
+| Admin | ![Admin panel](docs/screenshots/admin.png) |
+| Reports | ![Reports dashboard](docs/screenshots/reports.png) |
+
+Drop PNGs into `docs/screenshots/` with the file names above to populate this section.
+
 ## Stack
 
 - Next.js App Router with TypeScript strict mode

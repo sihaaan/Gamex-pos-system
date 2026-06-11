@@ -204,19 +204,21 @@ model Branch {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  legalEntityId     String    @map("legal_entity_id")
-  branchId          String?   @map("branch_id")
-  email             String    @unique
-  name              String
-  role              UserRole
-  passwordHash      String    @map("password_hash")
-  isActive          Boolean   @default(true) @map("is_active")
-  mfaEnabled        Boolean   @default(false) @map("mfa_enabled")
-  mfaSecretEnvelope String?   @map("mfa_secret_envelope")
-  lastLoginAt       DateTime? @map("last_login_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id                  String    @id @default(cuid())
+  legalEntityId       String    @map("legal_entity_id")
+  branchId            String?   @map("branch_id")
+  email               String    @unique
+  name                String
+  role                UserRole
+  passwordHash        String    @map("password_hash")
+  isActive            Boolean   @default(true) @map("is_active")
+  mfaEnabled          Boolean   @default(false) @map("mfa_enabled")
+  mfaSecretEnvelope   String?   @map("mfa_secret_envelope")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+  lastLoginAt         DateTime? @map("last_login_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   legalEntity      LegalEntity           @relation(fields: [legalEntityId], references: [id])
   auditLogs        AuditLog[]

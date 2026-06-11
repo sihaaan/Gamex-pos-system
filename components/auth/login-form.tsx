@@ -27,7 +27,10 @@ export function LoginForm() {
 
     setLoading(false);
     if (!response.ok) {
-      setError("Invalid email or password.");
+      const payload = (await response.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(payload?.error?.message ?? "Invalid email or password.");
       return;
     }
 

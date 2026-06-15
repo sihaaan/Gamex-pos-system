@@ -47,16 +47,21 @@ export default async function RootLayout({
     >
       <body className="min-h-full bg-background text-ink">
         <PwaBoot />
-        <header className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur print:hidden">
+        <header className="nav-gradient sticky top-0 z-40 border-b border-nav-border bg-nav text-nav-ink print:hidden">
           <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <Link
               href="/pos"
-              className="flex items-center gap-2 text-base font-semibold tracking-normal text-ink"
+              className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-nav-ink"
             >
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-white dark:text-zinc-950">
+              <span className="brand-gradient grid h-9 w-9 place-items-center rounded-xl text-white shadow-sm ring-1 ring-white/15">
                 <Gamepad2 className="h-5 w-5" />
               </span>
-              GameX POS
+              <span className="flex flex-col leading-none">
+                <span className="text-[15px] font-bold">GameX POS</span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-nav-ink-muted">
+                  Gaming Lounge
+                </span>
+              </span>
             </Link>
             <div className="flex items-center gap-2">
               <MainNav items={navItems} />

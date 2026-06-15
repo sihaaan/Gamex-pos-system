@@ -19,10 +19,10 @@ export function MainNav({ items }: { items: NavItem[] }) {
             key={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-md px-3 py-2 font-medium transition",
+              "rounded-lg px-3 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60",
               active
-                ? "bg-brand-soft text-success-ink"
-                : "text-ink-muted hover:bg-surface-strong hover:text-ink",
+                ? "bg-nav-active text-nav-ink ring-1 ring-inset ring-nav-border"
+                : "text-nav-ink-muted hover:bg-white/5 hover:text-nav-ink",
             )}
             href={item.href}
           >

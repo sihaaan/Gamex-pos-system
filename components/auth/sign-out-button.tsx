@@ -24,7 +24,7 @@ export function SignOutButton() {
 
   return (
     <Button
-      className="min-h-9 px-3"
+      className="min-h-9 px-3 text-nav-ink-muted hover:bg-white/10 hover:text-nav-ink focus-visible:ring-brand/60 focus-visible:ring-offset-nav"
       disabled={pending}
       onClick={signOut}
       variant="ghost"

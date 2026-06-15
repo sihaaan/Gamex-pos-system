@@ -7,6 +7,7 @@ import {
   CirclePlay,
   Gamepad2,
   MoveRight,
+  ReceiptText,
   Square,
   UserRound,
 } from "lucide-react";
@@ -36,9 +37,18 @@ export function CurrentBill({ controller }: { controller: PosController }) {
 
   if (!selectedTab) {
     return (
-      <p className="mt-3 text-sm text-ink-muted">
-        Create or select a customer bill to start selling.
-      </p>
+      <div className="mt-3 grid flex-1 place-items-center rounded-xl border border-dashed border-line-strong bg-surface-muted px-4 py-12 text-center">
+        <div className="grid justify-items-center gap-2">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-soft text-brand-strong ring-1 ring-inset ring-brand/20">
+            <ReceiptText className="h-6 w-6" />
+          </span>
+          <p className="text-sm font-semibold text-ink">No bill selected</p>
+          <p className="max-w-[16rem] text-xs text-ink-muted">
+            Create or select a customer bill to start selling. Tap a table or
+            console to begin.
+          </p>
+        </div>
+      </div>
     );
   }
 
@@ -65,7 +75,7 @@ function BillHeaderCard({ controller }: { controller: PosController }) {
   const quote = state.quote;
 
   return (
-    <div className="rounded-xl border border-success-line bg-success-soft p-4">
+    <div className="rounded-2xl border border-success-line bg-gradient-to-br from-success-soft to-surface p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -73,7 +83,9 @@ function BillHeaderCard({ controller }: { controller: PosController }) {
               <UserRound className="h-4 w-4 shrink-0" />
               <span className="truncate">{currentBillLabel}</span>
             </p>
-            <Badge tone="success">Selected bill</Badge>
+            <Badge tone="success" dot>
+              Selected bill
+            </Badge>
           </div>
           <p className="mt-1 text-xs text-success">
             {activeTimedLines.length > 0

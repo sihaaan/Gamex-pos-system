@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, ShoppingBasket } from "lucide-react";
+import { Plus, Receipt, ShoppingBasket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,16 @@ export function TabsList({ controller }: { controller: PosController }) {
   const { state, derived, actions } = controller;
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-ink">Open bills</h2>
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-soft text-brand-strong ring-1 ring-inset ring-brand/20">
+            <Receipt className="h-5 w-5" />
+          </span>
+          <h2 className="text-lg font-bold tracking-tight text-ink">
+            Open bills
+          </h2>
+        </div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
             Customer / table
@@ -53,21 +60,27 @@ export function TabsList({ controller }: { controller: PosController }) {
           return (
             <button
               key={tab.id}
-              className={`cursor-pointer rounded-lg border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+              className={`cursor-pointer rounded-xl border p-3.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
                 selected
-                  ? "border-brand bg-success-soft"
-                  : "border-line bg-surface hover:bg-surface-muted"
+                  ? "border-brand bg-brand-soft ring-1 ring-inset ring-brand/25"
+                  : "border-line bg-surface hover:-translate-y-0.5 hover:border-line-strong hover:shadow-card"
               }`}
               onClick={() => actions.selectTab(tab.id)}
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="font-medium text-ink">
+                <span className="font-semibold text-ink">
                   {tab.customerLabel || tab.customerName || "Walk-in tab"}
                 </span>
                 <span className="flex items-center gap-2">
-                  {selected ? <Badge tone="success">Selected</Badge> : null}
+                  {selected ? (
+                    <Badge tone="brand" dot>
+                      Selected
+                    </Badge>
+                  ) : null}
                   {liveTimedCount > 0 ? (
-                    <Badge tone="warning">{liveTimedCount} active</Badge>
+                    <Badge tone="warning" dot>
+                      {liveTimedCount} active
+                    </Badge>
                   ) : null}
                   <Badge>{tab.status}</Badge>
                 </span>
@@ -82,7 +95,12 @@ export function TabsList({ controller }: { controller: PosController }) {
           );
         })}
         {!state.loading && state.tabs.length === 0 ? (
-          <p className="text-sm text-ink-muted">No open bills.</p>
+          <div className="rounded-xl border border-dashed border-line-strong bg-surface-muted px-4 py-8 text-center">
+            <p className="text-sm font-semibold text-ink">No open bills yet</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              Start a game or create a new bill to begin selling.
+            </p>
+          </div>
         ) : null}
       </div>
     </div>
@@ -96,19 +114,23 @@ export function ProductQuickAdd({ controller }: { controller: PosController }) {
   return (
     <section
       aria-label="Snack quick add"
-      className="rounded-xl border border-line bg-surface p-4 shadow-sm"
+      className="rounded-2xl border border-line bg-surface p-5 shadow-card"
     >
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
-            <ShoppingBasket className="h-4 w-4 text-success" />
-            Snacks & drinks
-          </h2>
-          <p className="text-sm text-ink-muted">
-            Adds to the selected current bill.
-          </p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-success-soft text-success ring-1 ring-inset ring-success-line/60">
+            <ShoppingBasket className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-ink">
+              Snacks & drinks
+            </h2>
+            <p className="text-sm text-ink-muted">
+              Adds to the selected current bill.
+            </p>
+          </div>
         </div>
-        <Badge tone={derived.selectedTab ? "success" : "warning"}>
+        <Badge tone={derived.selectedTab ? "success" : "warning"} dot>
           {derived.selectedTab ? derived.currentBillLabel : "No bill selected"}
         </Badge>
       </div>
@@ -116,17 +138,17 @@ export function ProductQuickAdd({ controller }: { controller: PosController }) {
         {products.slice(0, 4).map((product) => (
           <button
             key={product.id}
-            className="cursor-pointer rounded-lg border border-line bg-surface-muted p-3 text-left transition hover:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
+            className="group flex cursor-pointer flex-col gap-1 rounded-xl border border-line bg-surface-muted p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
             disabled={state.actionPending}
             onClick={() => void actions.addRetailLine(product.id)}
           >
-            <span className="block text-sm font-semibold text-ink">
+            <span className="text-sm font-semibold leading-tight text-ink">
               {product.name}
             </span>
-            <span className="mt-1 block text-sm tabular-nums text-ink-muted">
+            <span className="text-base font-bold tabular-nums text-ink">
               {formatPaise(product.unitPrice)}
             </span>
-            <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-success">
+            <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-md bg-success-soft px-2 py-1 text-xs font-semibold text-success-ink ring-1 ring-inset ring-success-line/50 transition group-hover:bg-success group-hover:text-white dark:group-hover:text-zinc-950">
               <Plus className="h-3.5 w-3.5" />
               Add 1
             </span>

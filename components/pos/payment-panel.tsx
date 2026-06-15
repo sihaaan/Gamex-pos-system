@@ -155,12 +155,12 @@ export function PaymentPanel({ controller }: { controller: PosController }) {
         ) : null}
       </div>
       <Button
-        className="min-h-12 text-base"
+        className="min-h-14 text-base font-bold shadow-card"
         onClick={() => void actions.checkout()}
         disabled={!canPostCheckout}
-        variant={canPostCheckout ? "primary" : "secondary"}
+        variant={canPostCheckout ? "success" : "secondary"}
       >
-        <CreditCard className="h-4 w-4" />
+        <CreditCard className="h-5 w-5" />
         {derived.checkoutButtonLabel}
       </Button>
     </div>

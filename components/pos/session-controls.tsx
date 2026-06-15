@@ -17,7 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatPaise } from "@/lib/utils";
+import { cn, formatPaise } from "@/lib/utils";
 import { parseFloorLayout } from "@/lib/floor-layout";
 import { findServiceForResource } from "@/lib/pos/service-selection";
 import { staffServiceName } from "@/lib/pos/display";
@@ -80,14 +80,21 @@ export function SessionControls({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">Start play</h2>
-          <p className="text-sm text-ink-muted">
-            Tap an available pool table or PS5 to start a bill or add to the
-            current bill.
-          </p>
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="brand-gradient grid h-9 w-9 place-items-center rounded-xl text-white shadow-sm">
+            <CirclePlay className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-ink">
+              Start play
+            </h2>
+            <p className="text-sm text-ink-muted">
+              Tap an available pool table or PS5 to start a bill or add to the
+              current bill.
+            </p>
+          </div>
         </div>
         {floorLayout ? (
           <Button
@@ -142,30 +149,43 @@ export function SessionControls({
                     ? `Start ${cashierServiceName(service)} on ${resource.name}`
                     : `Start play on ${resource.name}`
                 }
-                className={`grid min-h-44 gap-3 rounded-xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed ${
+                className={cn(
+                  "group grid min-h-48 gap-3 rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed",
                   canStart
-                    ? "border-success-line bg-success-soft hover:border-brand"
-                    : "border-line bg-surface-muted"
-                }`}
+                    ? "border-success-line bg-gradient-to-br from-success-soft to-surface shadow-card hover:-translate-y-0.5 hover:border-success hover:shadow-float"
+                    : "border-line bg-surface-muted opacity-90",
+                )}
                 disabled={!canStart}
                 onClick={() => void actions.startSession(resource)}
               >
                 <ResourceCardHeader resource={resource} liveLine={null} />
-                <span className="rounded-md bg-surface/80 px-3 py-2 text-sm font-semibold text-success-ink">
+                <span
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition",
+                    canStart
+                      ? "bg-brand text-white shadow-sm group-hover:bg-brand-strong dark:text-zinc-950"
+                      : "bg-surface text-ink-subtle",
+                  )}
+                >
+                  {canStart ? <CirclePlay className="h-4 w-4" /> : null}
                   {startState}
                 </span>
                 {selectedTab ? (
-                  <span className="rounded-md bg-surface/70 px-3 py-2 text-xs font-medium text-success-ink">
+                  <span className="rounded-lg bg-surface/70 px-3 py-2 text-xs font-medium text-success-ink">
                     Selected bill: {currentBillLabel}
                   </span>
                 ) : null}
                 {service ? (
-                  <span className="text-sm text-ink-muted">
+                  <span className="mt-auto text-sm text-ink-muted">
                     {cashierServiceName(service)} -{" "}
-                    {formatPaise(service.pricingRule.ratePerMinute)}/min
+                    <span className="font-semibold tabular-nums text-ink">
+                      {formatPaise(service.pricingRule.ratePerMinute)}/min
+                    </span>
                   </span>
                 ) : (
-                  <span className="text-sm text-danger">Service missing</span>
+                  <span className="text-sm font-medium text-danger">
+                    Service missing
+                  </span>
                 )}
               </button>
             );
@@ -174,11 +194,12 @@ export function SessionControls({
           return (
             <div
               key={resource.id}
-              className={`grid min-h-44 gap-3 rounded-xl border p-4 text-left ${
+              className={cn(
+                "grid min-h-48 gap-3 rounded-2xl border p-4 text-left shadow-card",
                 resource.status === "MAINTENANCE"
-                  ? "border-danger-line bg-danger-soft"
-                  : "border-warning-line bg-warning-soft"
-              }`}
+                  ? "border-danger-line bg-gradient-to-br from-danger-soft to-surface"
+                  : "border-warning-line bg-gradient-to-br from-warning-soft to-surface",
+              )}
             >
               <ResourceCardHeader
                 resource={resource}
@@ -361,23 +382,45 @@ export function ResourceCardHeader({
   liveLine: TimedLine | null;
 }) {
   return (
-    <span className="grid gap-2">
-      <span>
-        <span className="block text-lg font-semibold text-ink">
-          {resource.name}
-        </span>
-        <span className="mt-1 flex items-center gap-1.5 text-sm text-ink-muted">
-          {resource.kind === "POOL_TABLE" ? (
-            <CircleDot className="h-4 w-4" />
-          ) : (
-            <Monitor className="h-4 w-4" />
+    <span className="flex items-start justify-between gap-2">
+      <span className="flex min-w-0 items-center gap-2.5">
+        <span
+          className={cn(
+            "grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1 ring-inset",
+            resourceChipTone(resource.status),
           )}
-          {resourceLabel(resource.kind)}
+        >
+          {resource.kind === "POOL_TABLE" ? (
+            <CircleDot className="h-5 w-5" />
+          ) : (
+            <Monitor className="h-5 w-5" />
+          )}
+        </span>
+        <span className="grid min-w-0">
+          <span className="truncate text-base font-bold leading-tight text-ink">
+            {resource.name}
+          </span>
+          <span className="text-xs font-medium text-ink-subtle">
+            {resourceLabel(resource.kind)}
+          </span>
         </span>
       </span>
       <ResourceStatusBadge resource={resource} liveLine={liveLine} />
     </span>
   );
+}
+
+function resourceChipTone(status: Resource["status"]): string {
+  switch (status) {
+    case "AVAILABLE":
+      return "bg-success-soft text-success ring-success-line/60";
+    case "MAINTENANCE":
+      return "bg-danger-soft text-danger ring-danger-line/60";
+    case "PAUSED":
+      return "bg-info-soft text-info ring-info-line/60";
+    default:
+      return "bg-warning-soft text-warning ring-warning-line/60";
+  }
 }
 
 export function ResourceStatusBadge({

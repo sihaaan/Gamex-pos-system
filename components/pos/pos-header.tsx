@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, CirclePlay, Lock } from "lucide-react";
+import { CheckCircle2, CirclePlay, Lock, Store } from "lucide-react";
 import { OfflineStatus } from "@/components/pwa/offline-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,15 +12,21 @@ export function PosHeader({ controller }: { controller: PosController }) {
   const { state, derived, actions } = controller;
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
-      <div>
-        <h1 className="text-xl font-semibold tracking-normal text-ink">
-          Selling counter
-        </h1>
-        <p className="text-sm text-ink-muted">
-          {state.bootstrap?.user.name ?? "Operator"} -{" "}
-          {state.bootstrap?.user.role ?? ""}
-        </p>
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
+      <div className="flex items-center gap-3.5">
+        <span className="brand-gradient hidden h-12 w-12 place-items-center rounded-2xl text-white shadow-sm ring-1 ring-white/15 sm:grid">
+          <Store className="h-6 w-6" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">
+            Selling counter
+          </h1>
+          <p className="text-sm font-medium text-ink-muted">
+            {state.bootstrap?.user.name ?? "Operator"}
+            <span className="text-ink-faint"> · </span>
+            {state.bootstrap?.user.role ?? ""}
+          </p>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <OfflineStatus />
@@ -58,8 +64,14 @@ export function PosHeader({ controller }: { controller: PosController }) {
           <Badge>Loading</Badge>
         ) : state.bootstrap?.activeShift ? (
           <>
-            <Badge tone="success">Shift open</Badge>
-            {state.actionPending ? <Badge tone="warning">Posting</Badge> : null}
+            <Badge tone="success" dot>
+              Shift open
+            </Badge>
+            {state.actionPending ? (
+              <Badge tone="warning" dot>
+                Posting
+              </Badge>
+            ) : null}
             <Button
               aria-label="Close operator shift"
               className="ml-2"

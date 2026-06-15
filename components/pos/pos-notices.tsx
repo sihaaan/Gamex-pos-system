@@ -51,7 +51,7 @@ export function ShiftClosedBanner({
   }
 
   return (
-    <section className="rounded-xl border border-warning-line bg-warning-soft p-4 text-warning-ink">
+    <section className="rounded-2xl border border-warning-line bg-warning-soft p-5 text-warning-ink shadow-card">
       <div className="flex flex-wrap items-center gap-3">
         <AlertTriangle className="h-5 w-5" />
         <div>
@@ -97,7 +97,7 @@ export function PostedInvoiceCard({
   }
 
   return (
-    <section className="rounded-xl border border-success-line bg-success-soft p-4 text-success-ink">
+    <section className="rounded-2xl border border-success-line bg-success-soft p-5 text-success-ink shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5" />
@@ -109,7 +109,9 @@ export function PostedInvoiceCard({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="success">Server confirmed</Badge>
+          <Badge tone="success" dot>
+            Server confirmed
+          </Badge>
           <Button asChild variant="secondary">
             <Link href={`/invoices/${invoice.id}`}>
               <ExternalLink className="h-4 w-4" />
@@ -155,7 +157,7 @@ export function ShiftSummaryCard({
   const reviewItems = [...derived.shiftWarnings, ...derived.unusualActions];
 
   return (
-    <section className="rounded-xl border border-success-line bg-surface p-4 shadow-sm">
+    <section className="rounded-2xl border border-success-line bg-surface p-5 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 text-success" />

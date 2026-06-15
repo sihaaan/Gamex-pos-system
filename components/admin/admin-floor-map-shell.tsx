@@ -4,11 +4,19 @@ import {
   CircleDot,
   Gamepad2,
   Map as MapIcon,
+  Move,
   RotateCw,
   Save,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
 import {
   AdminPageHeader,
   StatusMessages,
@@ -46,6 +54,20 @@ type ResourceRow = {
   branch: { id: string; name: string; code: string } | null;
 };
 
+type DragSession = {
+  resourceId: string;
+  startX: number;
+  startY: number;
+  pointerStartX: number;
+  pointerStartY: number;
+  cellW: number;
+  cellH: number;
+  moved: boolean;
+};
+
+// Pixels the pointer must travel before a press becomes a drag (vs a tap).
+const DRAG_THRESHOLD = 4;
+
 export function AdminFloorMapShell() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [branches, setBranches] = useState<BranchRow[]>([]);
@@ -60,6 +82,10 @@ export function AdminFloorMapShell() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragSession | null>(null);
+  const suppressClickRef = useRef(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const owner = currentUser?.role === "OWNER";
   const branchResources = useMemo(
@@ -220,6 +246,88 @@ export function AdminFloorMapShell() {
     }));
   }
 
+  function beginItemDrag(
+    event: PointerEvent<HTMLButtonElement>,
+    item: FloorLayoutItem,
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+    const grid = gridRef.current;
+    if (!grid) {
+      return;
+    }
+    const rect = grid.getBoundingClientRect();
+    suppressClickRef.current = false;
+    dragRef.current = {
+      resourceId: item.resourceId,
+      startX: item.x,
+      startY: item.y,
+      pointerStartX: event.clientX,
+      pointerStartY: event.clientY,
+      cellW: rect.width / layout.width,
+      cellH: rect.height / layout.height,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function dragItemMove(event: PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    if (!drag) {
+      return;
+    }
+    const dxPx = event.clientX - drag.pointerStartX;
+    const dyPx = event.clientY - drag.pointerStartY;
+    if (!drag.moved && Math.hypot(dxPx, dyPx) < DRAG_THRESHOLD) {
+      return;
+    }
+    const existing = layout.items.find(
+      (candidate) => candidate.resourceId === drag.resourceId,
+    );
+    if (!existing) {
+      return;
+    }
+    if (!drag.moved) {
+      drag.moved = true;
+      suppressClickRef.current = true;
+      setDraggingId(drag.resourceId);
+      setSelectedItemId(drag.resourceId);
+    }
+    const targetX = Math.min(
+      Math.max(drag.startX + Math.round(dxPx / drag.cellW), 0),
+      layout.width - existing.w,
+    );
+    const targetY = Math.min(
+      Math.max(drag.startY + Math.round(dyPx / drag.cellH), 0),
+      layout.height - existing.h,
+    );
+    if (existing.x === targetX && existing.y === targetY) {
+      return;
+    }
+    const moved = { ...existing, x: targetX, y: targetY };
+    if (!placementFits(layout, moved)) {
+      return;
+    }
+    updateLayout((current) => ({
+      ...current,
+      items: current.items.map((candidate) =>
+        candidate.resourceId === drag.resourceId ? moved : candidate,
+      ),
+    }));
+  }
+
+  function endItemDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (!dragRef.current) {
+      return;
+    }
+    dragRef.current = null;
+    setDraggingId(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
   function rotateSelected(item: FloorLayoutItem) {
     const rotated = {
       ...item,
@@ -306,7 +414,7 @@ export function AdminFloorMapShell() {
       <StatusMessages error={error} message={message} />
 
       <section className="grid gap-4 lg:grid-cols-[1.5fr_0.8fr]">
-        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
             <div className="flex flex-wrap items-end gap-3">
               <label className="grid gap-1 text-xs font-medium text-ink-muted">
@@ -372,7 +480,8 @@ export function AdminFloorMapShell() {
           ) : null}
 
           <div
-            className="relative grid w-full gap-0 overflow-hidden rounded-lg border border-line bg-surface-muted"
+            ref={gridRef}
+            className="relative grid w-full gap-0 overflow-hidden rounded-xl border border-line bg-surface-muted"
             style={{
               gridTemplateColumns: `repeat(${layout.width}, minmax(0, 1fr))`,
               gridTemplateRows: `repeat(${layout.height}, minmax(0, 1fr))`,
@@ -409,25 +518,36 @@ export function AdminFloorMapShell() {
               }
               const isPool = resource.kind === "POOL_TABLE";
               const selected = selectedItemId === item.resourceId;
+              const dragging = draggingId === item.resourceId;
 
               return (
                 <button
                   key={item.resourceId}
-                  aria-label={`${resource.name} at ${item.x + 1}, ${item.y + 1}`}
+                  aria-label={`${resource.name} at ${item.x + 1}, ${item.y + 1}. Drag to move.`}
                   className={cn(
-                    "z-10 m-0.5 flex min-h-0 cursor-pointer flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md p-1 text-center transition",
+                    "z-10 m-0.5 flex min-h-0 touch-none select-none flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg p-1 text-center shadow-sm transition",
+                    dragging ? "cursor-grabbing" : "cursor-grab",
                     isPool
-                      ? "border-2 border-amber-900/80 bg-emerald-700 text-emerald-50"
+                      ? "bg-emerald-700 text-emerald-50"
                       : "bg-zinc-800 text-zinc-100",
                     selected
-                      ? "ring-4 ring-brand"
+                      ? "ring-2 ring-brand ring-offset-1 ring-offset-surface-muted"
                       : "ring-1 ring-black/20 hover:ring-brand",
+                    dragging && "z-20 scale-105 shadow-float ring-2 ring-brand",
                   )}
-                  onClick={() =>
+                  onClick={() => {
+                    if (suppressClickRef.current) {
+                      suppressClickRef.current = false;
+                      return;
+                    }
                     setSelectedItemId((current) =>
                       current === item.resourceId ? null : item.resourceId,
-                    )
-                  }
+                    );
+                  }}
+                  onPointerDown={(event) => beginItemDrag(event, item)}
+                  onPointerMove={dragItemMove}
+                  onPointerUp={endItemDrag}
+                  onPointerCancel={endItemDrag}
                   style={{
                     gridColumn: `${item.x + 1} / span ${item.w}`,
                     gridRow: `${item.y + 1} / span ${item.h}`,
@@ -446,6 +566,12 @@ export function AdminFloorMapShell() {
               );
             })}
           </div>
+
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-subtle">
+            <Move className="h-3.5 w-3.5 shrink-0" />
+            Drag a table or console to move it. Select a piece to rotate, nudge
+            with the arrows, or remove it.
+          </p>
 
           {selectedItem ? (
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface-muted p-2">
@@ -491,7 +617,7 @@ export function AdminFloorMapShell() {
           ) : null}
         </div>
 
-        <aside className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <aside className="rounded-2xl border border-line bg-surface p-5 shadow-card">
           <h2 className="text-base font-semibold text-ink">Resources</h2>
           <p className="mt-1 text-sm text-ink-muted">
             Tap a resource, then tap a cell on the map to place it. Pool tables

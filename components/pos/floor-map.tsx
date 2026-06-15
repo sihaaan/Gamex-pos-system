@@ -123,7 +123,7 @@ export function FloorMap({
               aria-label={`${resource.name} - ${statusText[status]}${
                 use ? ` - ${billLabel(use.tab)}` : ""
               }`}
-              className={`relative flex min-h-0 cursor-pointer flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md p-1 text-center ring-2 transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-70 ${
+              className={`relative flex min-h-0 cursor-pointer flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg p-1 text-center shadow-sm ring-2 transition focus-visible:outline-none focus-visible:ring-4 enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 ${
                 statusRing[status]
               } ${
                 isPool

@@ -5,7 +5,7 @@ const SESSION_COOKIE_NAME = "gamex_session";
 
 const PROTECTED_PREFIXES = ["/pos", "/admin", "/reports", "/invoices"];
 
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
   const requiresAuth = PROTECTED_PREFIXES.some(

@@ -1,6 +1,9 @@
 export type TimedPricingInput = {
   billableMinutes: number;
+  pricingMode?: "PER_MINUTE" | "HALF_HOUR_BLOCKS" | string | null;
   ratePerMinute: number;
+  halfHourPrice?: number | null;
+  hourPrice?: number | null;
   minimumBillableMinutes: number;
   roundUpToMinutes: number;
   priceOverrideAmount?: number | null;
@@ -18,6 +21,28 @@ export function priceTimedService(input: TimedPricingInput): TimedPricingResult 
       chargedMinutes: input.billableMinutes,
       grossAmount: input.priceOverrideAmount,
       pricingRuleUsed: "MANAGER_PRICE_OVERRIDE",
+    };
+  }
+
+  if (
+    input.pricingMode === "HALF_HOUR_BLOCKS" &&
+    input.halfHourPrice !== undefined &&
+    input.halfHourPrice !== null &&
+    input.hourPrice !== undefined &&
+    input.hourPrice !== null
+  ) {
+    const minimumMinutes = Math.max(1, input.minimumBillableMinutes);
+    const chargedMinutes =
+      Math.ceil(Math.max(input.billableMinutes, minimumMinutes) / 30) * 30;
+    const fullHours = Math.floor(chargedMinutes / 60);
+    const hasHalfHour = chargedMinutes % 60 > 0;
+
+    return {
+      chargedMinutes,
+      grossAmount:
+        fullHours * input.hourPrice +
+        (hasHalfHour ? input.halfHourPrice : 0),
+      pricingRuleUsed: `HALF_HOUR_BLOCKS_30_${input.halfHourPrice}_60_${input.hourPrice}`,
     };
   }
 

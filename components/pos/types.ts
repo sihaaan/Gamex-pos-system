@@ -22,7 +22,12 @@ export type Service = {
   isActive: boolean;
   name: string;
   description: string;
-  pricingRule: { ratePerMinute: number };
+  pricingRule: {
+    pricingMode: string;
+    ratePerMinute: number;
+    halfHourPrice: number | null;
+    hourPrice: number | null;
+  };
 };
 
 export type Product = {

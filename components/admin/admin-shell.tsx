@@ -19,6 +19,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { timedPricingLabel } from "@/lib/timed-pricing-label";
 import { formatPaise } from "@/lib/utils";
 
 type Catalog = {
@@ -32,7 +33,13 @@ type Catalog = {
     name: string;
     sacCode: string;
     isActive: boolean;
-    pricingRule: { ratePerMinute: number; minimumBillableMinutes: number };
+    pricingRule: {
+      pricingMode: string;
+      ratePerMinute: number;
+      halfHourPrice: number | null;
+      hourPrice: number | null;
+      minimumBillableMinutes: number;
+    };
     taxRate: { gstRate: string; code: string };
   }>;
   products: Array<{
@@ -473,7 +480,7 @@ export function AdminShell() {
                   {service.pricingRule.minimumBillableMinutes} min
                 </p>
               </div>
-              <Badge>{formatPaise(service.pricingRule.ratePerMinute * 60)}/hr</Badge>
+              <Badge>{timedPricingLabel(service.pricingRule)}</Badge>
             </Row>
           ))}
         </Panel>

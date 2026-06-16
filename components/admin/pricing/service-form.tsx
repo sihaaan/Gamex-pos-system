@@ -144,39 +144,34 @@ export function ServiceForm({
             You can leave this as default while testing.
           </span>
         </label>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
-            Rate per hour (Rs)
+            30 min price (Rs)
             <Input
               inputMode="decimal"
-              placeholder="300"
-              value={draft.ratePerHour}
+              placeholder="80"
+              value={draft.halfHourPrice}
               onChange={(event) =>
-                onDraftChange({ ratePerHour: event.target.value })
+                onDraftChange({ halfHourPrice: event.target.value })
               }
             />
           </label>
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
-            Minimum minutes
+            1 hour price (Rs)
             <Input
-              inputMode="numeric"
-              value={draft.minimumBillableMinutes}
+              inputMode="decimal"
+              placeholder="140"
+              value={draft.hourPrice}
               onChange={(event) =>
-                onDraftChange({ minimumBillableMinutes: event.target.value })
-              }
-            />
-          </label>
-          <label className="grid gap-1 text-xs font-medium text-ink-muted">
-            Round to minutes
-            <Input
-              inputMode="numeric"
-              value={draft.roundUpToMinutes}
-              onChange={(event) =>
-                onDraftChange({ roundUpToMinutes: event.target.value })
+                onDraftChange({ hourPrice: event.target.value })
               }
             />
           </label>
         </div>
+        <p className="rounded-lg bg-surface-muted px-3 py-2 text-xs text-ink-muted">
+          Game time is charged in 30-minute blocks. Example: 90 min = 1 hour
+          price + 30 min price.
+        </p>
         <label className="grid gap-1 text-xs font-medium text-ink-muted">
           Manager discount limit %
           <Input

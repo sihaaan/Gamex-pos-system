@@ -179,11 +179,7 @@ export function AdminPricingShell() {
         name: service.name,
         sacCode: service.sacCode,
         description: service.description,
-        ratePerHour: paiseToRupeeInput(service.pricingRule.ratePerMinute * 60),
-        minimumBillableMinutes: String(
-          service.pricingRule.minimumBillableMinutes,
-        ),
-        roundUpToMinutes: String(service.pricingRule.roundUpToMinutes),
+        ...pricingDraftFromService(service),
         managerDiscountLimitPercent: String(
           service.pricingRule.managerDiscountLimitPercent,
         ),
@@ -201,11 +197,7 @@ export function AdminPricingShell() {
       name: service.name,
       sacCode: service.sacCode,
       description: service.description,
-      ratePerHour: paiseToRupeeInput(service.pricingRule.ratePerMinute * 60),
-      minimumBillableMinutes: String(
-        service.pricingRule.minimumBillableMinutes,
-      ),
-      roundUpToMinutes: String(service.pricingRule.roundUpToMinutes),
+      ...pricingDraftFromService(service),
       managerDiscountLimitPercent: String(
         service.pricingRule.managerDiscountLimitPercent,
       ),
@@ -227,6 +219,11 @@ export function AdminPricingShell() {
       if (!taxRateId) {
         throw new Error("Unable to prepare the default timed-play GST rate.");
       }
+      const halfHourPrice = rupeeInputToPaise(draft.halfHourPrice);
+      const hourPrice = rupeeInputToPaise(draft.hourPrice);
+      if (halfHourPrice <= 0 || hourPrice <= 0) {
+        throw new Error("Enter both the 30 min price and 1 hour price.");
+      }
       const response = await fetch(
         editing
           ? `/api/admin/services/${selectedServiceId}`
@@ -240,10 +237,12 @@ export function AdminPricingShell() {
             name: draft.name,
             sacCode: draft.sacCode,
             description: draft.description,
-            // UI collects the rate per hour; the API stores paise per minute.
-            ratePerMinute: Math.round(rupeeInputToPaise(draft.ratePerHour) / 60),
-            minimumBillableMinutes: Number(draft.minimumBillableMinutes),
-            roundUpToMinutes: Number(draft.roundUpToMinutes),
+            pricingMode: "HALF_HOUR_BLOCKS",
+            ratePerMinute: Math.round(hourPrice / 60),
+            halfHourPrice,
+            hourPrice,
+            minimumBillableMinutes: 30,
+            roundUpToMinutes: 30,
             managerDiscountLimitPercent: Number(
               draft.managerDiscountLimitPercent,
             ),
@@ -406,4 +405,23 @@ async function createPilotDefaults(): Promise<PilotDefaults> {
     );
   }
   return (await response.json()) as PilotDefaults;
+}
+
+function pricingDraftFromService(service: ServiceRow): Pick<
+  ServiceDraft,
+  "halfHourPrice" | "hourPrice" | "minimumBillableMinutes" | "roundUpToMinutes"
+> {
+  return {
+    halfHourPrice: paiseToRupeeInput(
+      service.pricingRule.halfHourPrice ??
+        service.pricingRule.ratePerMinute * 30,
+    ),
+    hourPrice: paiseToRupeeInput(
+      service.pricingRule.hourPrice ?? service.pricingRule.ratePerMinute * 60,
+    ),
+    minimumBillableMinutes: String(
+      service.pricingRule.minimumBillableMinutes,
+    ),
+    roundUpToMinutes: String(service.pricingRule.roundUpToMinutes),
+  };
 }

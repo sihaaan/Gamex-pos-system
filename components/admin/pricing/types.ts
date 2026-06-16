@@ -11,7 +11,10 @@ export type ServiceRow = {
   branch: { id: string; name: string; code: string } | null;
   taxRate: TaxRateOption;
   pricingRule: {
+    pricingMode: string;
     ratePerMinute: number;
+    halfHourPrice: number | null;
+    hourPrice: number | null;
     minimumBillableMinutes: number;
     roundUpToMinutes: number;
     managerDiscountLimitPercent: number;
@@ -24,7 +27,8 @@ export type ServiceDraft = {
   name: string;
   sacCode: string;
   description: string;
-  ratePerHour: string;
+  halfHourPrice: string;
+  hourPrice: string;
   minimumBillableMinutes: string;
   roundUpToMinutes: string;
   managerDiscountLimitPercent: string;
@@ -38,9 +42,10 @@ export const emptyServiceDraft: ServiceDraft = {
   name: "",
   sacCode: "9996",
   description: "",
-  ratePerHour: "",
-  minimumBillableMinutes: "10",
-  roundUpToMinutes: "5",
+  halfHourPrice: "80",
+  hourPrice: "140",
+  minimumBillableMinutes: "30",
+  roundUpToMinutes: "30",
   managerDiscountLimitPercent: "10",
   isActive: true,
   reason: "",

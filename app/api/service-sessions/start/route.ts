@@ -110,7 +110,10 @@ export async function POST(request: Request): Promise<NextResponse> {
           descriptionSnapshot: service.description,
           sacCodeSnapshot: service.sacCode,
           gstRateSnapshot: service.taxRate.gstRate,
+          pricingModeSnapshot: service.pricingRule.pricingMode,
           ratePerMinuteSnapshot: service.pricingRule.ratePerMinute,
+          halfHourPriceSnapshot: service.pricingRule.halfHourPrice,
+          hourPriceSnapshot: service.pricingRule.hourPrice,
           minimumBillableMinutesSnapshot:
             service.pricingRule.minimumBillableMinutes,
           roundUpToMinutesSnapshot: service.pricingRule.roundUpToMinutes,

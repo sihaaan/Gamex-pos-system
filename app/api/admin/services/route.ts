@@ -62,7 +62,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         data: {
           legalEntityId: auth.legalEntityId,
           name: uniquePricingRuleName(input.name),
+          pricingMode: input.pricingMode,
           ratePerMinute: input.ratePerMinute,
+          halfHourPrice: input.halfHourPrice,
+          hourPrice: input.hourPrice,
           minimumBillableMinutes: input.minimumBillableMinutes,
           roundUpToMinutes: input.roundUpToMinutes,
           managerDiscountLimitPercent: input.managerDiscountLimitPercent,

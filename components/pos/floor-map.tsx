@@ -1,8 +1,8 @@
 "use client";
 
 import { CircleDot, Gamepad2, UserRound, Wrench } from "lucide-react";
-import { formatPaise } from "@/lib/utils";
 import { findServiceForResource } from "@/lib/pos/service-selection";
+import { timedPricingLabel } from "@/lib/timed-pricing-label";
 import type { FloorLayout } from "@/lib/floor-layout";
 import { billLabel, elapsedLineLabel } from "./timing";
 import type { Resource, Tab, TimedLine } from "./types";
@@ -214,7 +214,7 @@ export function FloorMap({
                     {use
                       ? elapsedLineLabel(use.line)
                       : service
-                        ? `${formatPaise(service.pricingRule.ratePerMinute * 60)}/hr`
+                        ? timedPricingLabel(service.pricingRule)
                         : statusText[status]}
                   </span>
                 </button>

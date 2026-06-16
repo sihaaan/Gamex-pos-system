@@ -62,7 +62,10 @@ export async function PATCH(
     }
 
     const pricingChanged =
+      input.pricingMode !== undefined ||
       input.ratePerMinute !== undefined ||
+      input.halfHourPrice !== undefined ||
+      input.hourPrice !== undefined ||
       input.minimumBillableMinutes !== undefined ||
       input.roundUpToMinutes !== undefined ||
       input.managerDiscountLimitPercent !== undefined;
@@ -75,8 +78,13 @@ export async function PATCH(
               data: {
                 legalEntityId: auth.legalEntityId,
                 name: `${input.name ?? before.name} pricing ${Date.now()}`,
+                pricingMode:
+                  input.pricingMode ?? before.pricingRule.pricingMode,
                 ratePerMinute:
                   input.ratePerMinute ?? before.pricingRule.ratePerMinute,
+                halfHourPrice:
+                  input.halfHourPrice ?? before.pricingRule.halfHourPrice,
+                hourPrice: input.hourPrice ?? before.pricingRule.hourPrice,
                 minimumBillableMinutes:
                   input.minimumBillableMinutes ??
                   before.pricingRule.minimumBillableMinutes,

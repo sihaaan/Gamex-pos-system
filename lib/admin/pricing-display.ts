@@ -6,7 +6,10 @@ export type PricingDisplayService = {
   name: string;
   description: string;
   pricingRule: {
+    pricingMode?: string | null;
     ratePerMinute: number;
+    halfHourPrice?: number | null;
+    hourPrice?: number | null;
   };
 };
 

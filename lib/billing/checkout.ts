@@ -12,7 +12,10 @@ export type TimedLineSnapshot = {
   description: string;
   hsnSac: string;
   gstRatePercent: number;
+  pricingMode?: string | null;
   ratePerMinute: number;
+  halfHourPrice?: number | null;
+  hourPrice?: number | null;
   minimumBillableMinutes: number;
   roundUpToMinutes: number;
   priceOverrideAmount?: number | null;
@@ -185,7 +188,10 @@ function buildTimedGrossLine(
   const duration = calculateBillableDuration(line.events, now);
   const priced = priceTimedService({
     billableMinutes: duration.billableMinutes,
+    pricingMode: line.pricingMode,
     ratePerMinute: line.ratePerMinute,
+    halfHourPrice: line.halfHourPrice,
+    hourPrice: line.hourPrice,
     minimumBillableMinutes: line.minimumBillableMinutes,
     roundUpToMinutes: line.roundUpToMinutes,
     priceOverrideAmount: line.priceOverrideAmount,
@@ -198,7 +204,10 @@ function buildTimedGrossLine(
     hsnSac: line.hsnSac,
     gstRatePercent: line.gstRatePercent,
     grossAmount: priced.grossAmount,
-    unitPrice: line.ratePerMinute,
+    unitPrice:
+      line.pricingMode === "HALF_HOUR_BLOCKS" && line.hourPrice
+        ? line.hourPrice
+        : line.ratePerMinute,
     billableMinutes: priced.chargedMinutes,
     pricingRuleUsed: priced.pricingRuleUsed,
     startedAt: firstStartedAt(line.events),

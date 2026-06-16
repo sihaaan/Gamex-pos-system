@@ -16,7 +16,8 @@ import {
   pricingEditActionLabel,
   pricingScopeLabel,
 } from "@/lib/admin/pricing-display";
-import { cn, formatPaise } from "@/lib/utils";
+import { timedPricingLabel } from "@/lib/timed-pricing-label";
+import { cn } from "@/lib/utils";
 import type { ServiceRow } from "./types";
 
 export function ServiceList({
@@ -176,8 +177,7 @@ export function ServiceList({
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-ink-muted">
-                  Bills a minimum of {service.pricingRule.minimumBillableMinutes}{" "}
-                  min, rounded up to {service.pricingRule.roundUpToMinutes} min
+                  {pricingNote(service)}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {canUseGlobalDefault ? (
@@ -226,7 +226,17 @@ function scopeBadgeTone(
 }
 
 function rateLabel(service: Pick<ServiceRow, "pricingRule"> | null): string {
-  return service
-    ? `${formatPaise(service.pricingRule.ratePerMinute * 60)}/hr`
-    : "Not set";
+  if (!service) {
+    return "Not set";
+  }
+
+  return timedPricingLabel(service.pricingRule);
+}
+
+function pricingNote(service: Pick<ServiceRow, "pricingRule">): string {
+  if (service.pricingRule.pricingMode === "HALF_HOUR_BLOCKS") {
+    return "Charged in 30-minute blocks";
+  }
+
+  return `Bills a minimum of ${service.pricingRule.minimumBillableMinutes} min, rounded up to ${service.pricingRule.roundUpToMinutes} min`;
 }

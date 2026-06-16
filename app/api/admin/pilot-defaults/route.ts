@@ -24,13 +24,15 @@ const defaultServices = [
     name: "Pool play",
     description: "Pool timed play",
     sacCode: "9996",
-    ratePerMinute: 500,
+    halfHourPrice: 8000,
+    hourPrice: 14000,
   },
   {
     name: "PS5 play",
     description: "PS5 console timed play",
     sacCode: "9996",
-    ratePerMinute: 500,
+    halfHourPrice: 8000,
+    hourPrice: 14000,
   },
 ] as const;
 
@@ -76,9 +78,12 @@ export async function POST(): Promise<NextResponse> {
           data: {
             legalEntityId: auth.legalEntityId,
             name: `${serviceInput.name} default ${Date.now()} ${services.length}`,
-            ratePerMinute: serviceInput.ratePerMinute,
-            minimumBillableMinutes: 10,
-            roundUpToMinutes: 5,
+            pricingMode: "HALF_HOUR_BLOCKS",
+            ratePerMinute: Math.round(serviceInput.hourPrice / 60),
+            halfHourPrice: serviceInput.halfHourPrice,
+            hourPrice: serviceInput.hourPrice,
+            minimumBillableMinutes: 30,
+            roundUpToMinutes: 30,
             managerDiscountLimitPercent: 10,
           },
           select: { id: true },

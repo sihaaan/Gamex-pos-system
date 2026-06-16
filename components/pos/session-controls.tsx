@@ -21,6 +21,7 @@ import { cn, formatPaise } from "@/lib/utils";
 import { parseFloorLayout } from "@/lib/floor-layout";
 import { findServiceForResource } from "@/lib/pos/service-selection";
 import { staffServiceName } from "@/lib/pos/display";
+import { timedPricingLabel } from "@/lib/timed-pricing-label";
 import { FloorMap } from "./floor-map";
 import {
   billLabel,
@@ -179,7 +180,7 @@ export function SessionControls({
                   <span className="mt-auto text-sm text-ink-muted">
                     {cashierServiceName(service)} -{" "}
                     <span className="font-semibold tabular-nums text-ink">
-                      {formatPaise(service.pricingRule.ratePerMinute * 60)}/hr
+                      {timedPricingLabel(service.pricingRule)}
                     </span>
                   </span>
                 ) : (

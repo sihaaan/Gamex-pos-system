@@ -15,6 +15,68 @@ describe("pricing and GST invoice draft", () => {
     ).toMatchObject({ chargedMinutes: 10, grossAmount: 5000 });
   });
 
+  it("charges exact half-hour block pricing", () => {
+    const price = (billableMinutes: number) =>
+      priceTimedService({
+        billableMinutes,
+        pricingMode: "HALF_HOUR_BLOCKS",
+        ratePerMinute: 233,
+        halfHourPrice: 8000,
+        hourPrice: 14000,
+        minimumBillableMinutes: 30,
+        roundUpToMinutes: 30,
+      });
+
+    expect(price(10)).toMatchObject({ chargedMinutes: 30, grossAmount: 8000 });
+    expect(price(30)).toMatchObject({ chargedMinutes: 30, grossAmount: 8000 });
+    expect(price(31)).toMatchObject({ chargedMinutes: 60, grossAmount: 14000 });
+    expect(price(60)).toMatchObject({ chargedMinutes: 60, grossAmount: 14000 });
+    expect(price(61)).toMatchObject({ chargedMinutes: 90, grossAmount: 22000 });
+    expect(price(90)).toMatchObject({ chargedMinutes: 90, grossAmount: 22000 });
+    expect(price(120)).toMatchObject({ chargedMinutes: 120, grossAmount: 28000 });
+  });
+
+  it("keeps exact block prices in invoice drafts", () => {
+    const draft = buildInvoiceDraft({
+      invoiceSeriesSnapshot: "GXA012526",
+      intraState: true,
+      timedLines: [
+        {
+          id: "timed-1",
+          description: "Pool timed play",
+          hsnSac: "9996",
+          gstRatePercent: 18,
+          pricingMode: "HALF_HOUR_BLOCKS",
+          ratePerMinute: 233,
+          halfHourPrice: 8000,
+          hourPrice: 14000,
+          minimumBillableMinutes: 30,
+          roundUpToMinutes: 30,
+          events: [
+            {
+              eventType: "STARTED",
+              occurredAt: new Date("2026-06-07T10:00:00Z"),
+            },
+            {
+              eventType: "STOPPED",
+              occurredAt: new Date("2026-06-07T11:00:00Z"),
+            },
+          ],
+        },
+      ],
+      retailLines: [],
+    });
+
+    expect(draft.grossAmount).toBe(14000);
+    expect(draft.totalAmount).toBe(14000);
+    expect(draft.lines[0]).toMatchObject({
+      billableMinutes: 60,
+      totalAmount: 14000,
+      unitPrice: 14000,
+      pricingRuleUsed: "HALF_HOUR_BLOCKS_30_8000_60_14000",
+    });
+  });
+
   it("splits inclusive GST for intra-state Karnataka sales", () => {
     expect(
       splitInclusiveGst({

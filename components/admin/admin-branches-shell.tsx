@@ -196,7 +196,7 @@ export function AdminBranchesShell() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div>
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-success" />
@@ -223,7 +223,7 @@ export function AdminBranchesShell() {
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-base font-semibold">
               {owner ? "Legal entity branches" : "Assigned branch"}
@@ -286,7 +286,7 @@ export function AdminBranchesShell() {
           </div>
         </div>
 
-        <aside className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <aside className="rounded-2xl border border-line bg-surface p-5 shadow-card">
           <div className="mb-3 flex items-center gap-2">
             <Pencil className="h-4 w-4 text-success" />
             <h2 className="text-base font-semibold">

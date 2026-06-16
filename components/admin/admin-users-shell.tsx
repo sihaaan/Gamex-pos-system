@@ -289,7 +289,7 @@ export function AdminUsersShell() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div>
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-success" />
@@ -316,7 +316,7 @@ export function AdminUsersShell() {
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-base font-semibold">Same legal entity users</h2>
             <Button onClick={startCreate} variant="secondary">
@@ -374,7 +374,7 @@ export function AdminUsersShell() {
         </div>
 
         <aside className="grid gap-4">
-          <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+          <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
             <div className="mb-3 flex items-center gap-2">
               <Pencil className="h-4 w-4 text-success" />
               <h2 className="text-base font-semibold">
@@ -503,7 +503,7 @@ export function AdminUsersShell() {
           </section>
 
           {selectedUser ? (
-            <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+            <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
               <div className="mb-3 flex items-center gap-2">
                 <KeyRound className="h-4 w-4 text-success" />
                 <h2 className="text-base font-semibold">Access actions</h2>

@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
+  ArrowRight,
   Building2,
   BadgePercent,
   Gamepad2,
   IndianRupee,
+  LayoutDashboard,
   Map as MapIcon,
   Package,
   Timer,
@@ -201,14 +203,20 @@ export function AdminShell() {
   }
 
   return (
-    <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-        <h1 className="text-xl font-semibold tracking-normal">Admin</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Catalog, GST, pricing, stock, and resources. Sensitive changes are audited.
-        </p>
+    <main className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:px-8">
+      <section className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <span className="brand-gradient grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white shadow-sm ring-1 ring-white/15">
+          <LayoutDashboard className="h-6 w-6" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Admin</h1>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            Catalog, GST, pricing, stock, and resources. Sensitive changes are
+            audited.
+          </p>
+        </div>
       </section>
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <AdminCard
           description="Create staff, reset passwords, deactivate access."
           href="/admin/users"
@@ -357,10 +365,10 @@ export function AdminShell() {
                 {weekdays.map((day) => (
                   <button
                     key={day.value}
-                    className={`min-h-9 rounded-md border px-3 text-sm font-medium ${
+                    className={`min-h-9 rounded-lg border px-3 text-sm font-semibold transition ${
                       discountDraft.daysOfWeek.includes(day.value)
-                        ? "border-brand bg-brand text-white"
-                        : "border-line-strong bg-surface text-ink-muted"
+                        ? "border-brand bg-brand text-white dark:text-zinc-950"
+                        : "border-line-strong bg-surface text-ink-muted hover:border-brand hover:text-ink"
                     }`}
                     onClick={() => toggleWeekday(day.value)}
                     type="button"
@@ -435,7 +443,7 @@ export function AdminShell() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge tone={rule.isActive ? "success" : "warning"}>
+                <Badge tone={rule.isActive ? "success" : "warning"} dot>
                   {rule.isActive ? "Active" : "Off"}
                 </Badge>
                 <Button onClick={() => editDiscountRule(rule)} variant="secondary">
@@ -520,17 +528,20 @@ function AdminCard({
   const content = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="grid h-10 w-10 place-items-center rounded-md bg-success-soft text-success">
+        <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-soft text-brand-strong ring-1 ring-inset ring-brand/20">
           {icon}
         </span>
         {href ? (
-          <span className="text-xs font-semibold text-success">Open</span>
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand transition-all group-hover:gap-1.5">
+            Open
+            <ArrowRight className="h-3.5 w-3.5" />
+          </span>
         ) : (
-          <span className="text-xs font-semibold text-ink-subtle">Later</span>
+          <Badge>Later</Badge>
         )}
       </div>
       <div>
-        <h2 className="font-semibold">{title}</h2>
+        <h2 className="text-base font-bold tracking-tight text-ink">{title}</h2>
         <p className="mt-1 text-xs leading-5 text-ink-muted">{description}</p>
       </div>
     </>
@@ -539,7 +550,7 @@ function AdminCard({
   if (href) {
     return (
       <Link
-        className="grid min-h-36 gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm text-sm transition hover:border-brand hover:bg-success-soft"
+        className="group grid min-h-36 gap-4 rounded-2xl border border-line bg-surface p-5 text-sm shadow-card transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-float"
         href={href}
       >
         {content}
@@ -548,7 +559,7 @@ function AdminCard({
   }
 
   return (
-    <div className="grid min-h-36 gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm text-sm opacity-80">
+    <div className="grid min-h-36 gap-4 rounded-2xl border border-line bg-surface p-5 text-sm opacity-70 shadow-card">
       {content}
     </div>
   );
@@ -578,8 +589,10 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-      <h2 className="mb-3 text-base font-semibold">{title}</h2>
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+      <h2 className="mb-3 text-base font-bold tracking-tight text-ink">
+        {title}
+      </h2>
       <div className="grid gap-2">{children}</div>
     </section>
   );
@@ -587,7 +600,7 @@ function Panel({
 
 function Row({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line px-3 py-2 text-sm">
+    <div className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm">
       {children}
     </div>
   );

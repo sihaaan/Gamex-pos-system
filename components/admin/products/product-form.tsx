@@ -29,7 +29,7 @@ export function ProductForm({
   onToggleActive: (product: ProductRow) => void;
 }) {
   return (
-    <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
       <div className="mb-3 flex items-center gap-2">
         <Pencil className="h-4 w-4 text-brand" />
         <h2 className="text-base font-semibold text-ink">

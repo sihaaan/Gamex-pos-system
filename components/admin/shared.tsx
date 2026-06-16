@@ -40,15 +40,15 @@ export function AdminPageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
-      <div>
-        <div className="flex items-center gap-2">
-          <Icon className="h-5 w-5 text-brand" />
-          <h1 className="text-xl font-semibold tracking-normal text-ink">
-            {title}
-          </h1>
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
+      <div className="flex items-center gap-3.5">
+        <span className="brand-gradient grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white shadow-sm ring-1 ring-white/15">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">{title}</h1>
+          <p className="mt-0.5 text-sm text-ink-muted">{description}</p>
         </div>
-        <p className="mt-1 text-sm text-ink-muted">{description}</p>
       </div>
       {actions ?? (
         <Button asChild variant="secondary">

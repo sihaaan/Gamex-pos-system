@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/session";
 import { errorResponse } from "@/lib/http";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(): Promise<NextResponse> {
   try {
     const auth = await requireAuth();

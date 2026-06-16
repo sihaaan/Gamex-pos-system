@@ -382,7 +382,7 @@ export function ResourceCardHeader({
   liveLine: TimedLine | null;
 }) {
   return (
-    <span className="flex items-start justify-between gap-2">
+    <span className="grid gap-2.5">
       <span className="flex min-w-0 items-center gap-2.5">
         <span
           className={cn(
@@ -400,7 +400,7 @@ export function ResourceCardHeader({
           <span className="truncate text-base font-bold leading-tight text-ink">
             {resource.name}
           </span>
-          <span className="text-xs font-medium text-ink-subtle">
+          <span className="truncate text-xs font-medium text-ink-subtle">
             {resourceLabel(resource.kind)}
           </span>
         </span>

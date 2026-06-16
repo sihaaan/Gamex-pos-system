@@ -24,6 +24,12 @@ import {
   type StockDraft,
 } from "./products/types";
 
+type PilotDefaults = {
+  retailTaxRateId: string;
+  timedTaxRateId: string;
+  services: Array<{ id: string; name: string }>;
+};
+
 export function AdminProductsShell() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -154,6 +160,15 @@ export function AdminProductsShell() {
     setError(null);
     try {
       const editing = Boolean(selectedProductId);
+      const fallbackDefaults = draft.taxRateId
+        ? null
+        : await createPilotDefaults();
+      const taxRateId = draft.taxRateId || fallbackDefaults?.retailTaxRateId;
+      if (!taxRateId) {
+        throw new Error("Unable to prepare the default GST rate.");
+      }
+      const sku = draft.sku.trim() || productSkuFromName(draft.name);
+      const hsnCode = draft.hsnCode.trim() || "2106";
       const response = await fetch(
         editing
           ? `/api/admin/products/${selectedProductId}`
@@ -163,10 +178,10 @@ export function AdminProductsShell() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             branchId: draft.branchId || null,
-            taxRateId: draft.taxRateId,
-            sku: draft.sku,
+            taxRateId,
+            sku,
             name: draft.name,
-            hsnCode: draft.hsnCode,
+            hsnCode,
             unitPrice: rupeeInputToPaise(draft.unitPrice),
             trackStock: draft.trackStock,
             stockQuantity: Number(draft.stockQuantity),
@@ -188,7 +203,7 @@ export function AdminProductsShell() {
         setDraft({
           ...emptyProductDraft,
           branchId: draft.branchId,
-          taxRateId: draft.taxRateId,
+          taxRateId,
         });
       }
     } catch (caught) {
@@ -338,4 +353,24 @@ export function AdminProductsShell() {
       </section>
     </main>
   );
+}
+
+async function createPilotDefaults(): Promise<PilotDefaults> {
+  const response = await fetch("/api/admin/pilot-defaults", { method: "POST" });
+  if (!response.ok) {
+    throw new Error(
+      await responseMessage(response, "Unable to prepare pilot defaults."),
+    );
+  }
+  return (await response.json()) as PilotDefaults;
+}
+
+function productSkuFromName(name: string): string {
+  const base = name
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 24);
+  return base || "ITEM";
 }

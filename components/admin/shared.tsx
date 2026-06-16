@@ -109,8 +109,8 @@ export function BranchScopeSelect({
     >
       {owner && includeGlobalScopes ? (
         <>
-          <option value="">All scopes</option>
-          <option value="GLOBAL">Legal entity global</option>
+          <option value="">Show all</option>
+          <option value="GLOBAL">Default for all branches</option>
         </>
       ) : null}
       {branches.map((branch) => (

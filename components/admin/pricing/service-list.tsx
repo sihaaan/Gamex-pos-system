@@ -33,6 +33,7 @@ export function ServiceList({
   onSearchChange,
   onBranchFilterChange,
   onCreate,
+  onCreateDefaults,
   onEdit,
   onUseGlobalDefault,
 }: {
@@ -49,6 +50,7 @@ export function ServiceList({
   onSearchChange: (value: string) => void;
   onBranchFilterChange: (value: string) => void;
   onCreate: () => void;
+  onCreateDefaults: () => void;
   onEdit: (service: ServiceRow) => void;
   onUseGlobalDefault: (service: ServiceRow) => void;
 }) {
@@ -57,11 +59,24 @@ export function ServiceList({
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-ink">Services &amp; prices</h2>
-        <Button onClick={onCreate} variant="secondary">
-          <Plus className="h-4 w-4" />
-          New service
-        </Button>
+        <div>
+          <h2 className="text-base font-semibold text-ink">
+            Game prices
+          </h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            Resources are the actual tables/consoles. Prices are game types like
+            Pool play or PS5 play.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={pending} onClick={onCreateDefaults} variant="secondary">
+            Set up Pool/PS5 defaults
+          </Button>
+          <Button onClick={onCreate} variant="secondary">
+            <Plus className="h-4 w-4" />
+            New price
+          </Button>
+        </div>
       </div>
       <div className="mb-3 grid gap-2 sm:grid-cols-2">
         <label className="grid gap-1 text-xs font-medium text-ink-muted">
@@ -73,7 +88,7 @@ export function ServiceList({
           />
         </label>
         <label className="grid gap-1 text-xs font-medium text-ink-muted">
-          Branch
+          Price scope
           <BranchScopeSelect
             owner={owner}
             branches={branches}
@@ -187,9 +202,14 @@ export function ServiceList({
           );
         })}
         {services.length === 0 ? (
-          <p className="rounded-md border border-line p-4 text-sm text-ink-muted">
-            No timed services found.
-          </p>
+          <div className="rounded-md border border-line p-4 text-sm text-ink-muted">
+            <p className="font-medium text-ink">No game prices yet.</p>
+            <p className="mt-1">
+              Click Set up Pool/PS5 defaults to create Pool play and PS5 play.
+              Those prices will be used by matching resources like Pool 1 and
+              PS5 1.
+            </p>
+          </div>
         ) : null}
       </div>
     </div>

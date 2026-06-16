@@ -22,6 +22,12 @@ import {
   type ServiceRow,
 } from "./pricing/types";
 
+type PilotDefaults = {
+  retailTaxRateId: string;
+  timedTaxRateId: string;
+  services: Array<{ id: string; name: string }>;
+};
+
 export function AdminPricingShell() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -214,6 +220,13 @@ export function AdminPricingShell() {
     setError(null);
     try {
       const editing = Boolean(selectedServiceId);
+      const fallbackDefaults = draft.taxRateId
+        ? null
+        : await createPilotDefaults();
+      const taxRateId = draft.taxRateId || fallbackDefaults?.timedTaxRateId;
+      if (!taxRateId) {
+        throw new Error("Unable to prepare the default timed-play GST rate.");
+      }
       const response = await fetch(
         editing
           ? `/api/admin/services/${selectedServiceId}`
@@ -223,12 +236,11 @@ export function AdminPricingShell() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             branchId: draft.branchId || null,
-            taxRateId: draft.taxRateId,
+            taxRateId,
             name: draft.name,
             sacCode: draft.sacCode,
             description: draft.description,
-            // UI collects the rate per hour; the API/billing model stores paise
-            // per minute, so convert here (₹/hr → paise/hr → paise/min).
+            // UI collects the rate per hour; the API stores paise per minute.
             ratePerMinute: Math.round(rupeeInputToPaise(draft.ratePerHour) / 60),
             minimumBillableMinutes: Number(draft.minimumBillableMinutes),
             roundUpToMinutes: Number(draft.roundUpToMinutes),
@@ -252,7 +264,7 @@ export function AdminPricingShell() {
         setDraft({
           ...emptyServiceDraft,
           branchId: draft.branchId,
-          taxRateId: draft.taxRateId,
+          taxRateId,
         });
       }
     } catch (caught) {
@@ -306,12 +318,31 @@ export function AdminPricingShell() {
     }
   }
 
+  async function handleCreatePilotDefaults() {
+    setPending(true);
+    setMessage(null);
+    setError(null);
+    try {
+      await createPilotDefaults();
+      await load();
+      setMessage("Pool/PS5 default pricing is ready.");
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to create Pool/PS5 defaults.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
       <AdminPageHeader
         icon={Clock3}
         title="Timed services & pricing"
-        description="Configure Pool and PS5 pricing for future sessions."
+        description="Set game prices like Pool play and PS5 play. They apply to matching resources such as Pool 1-5 and PS5 consoles."
       />
 
       <StatusMessages error={error} message={message} />
@@ -331,6 +362,7 @@ export function AdminPricingShell() {
           onSearchChange={setSearch}
           onBranchFilterChange={setBranchFilter}
           onCreate={startCreate}
+          onCreateDefaults={() => void handleCreatePilotDefaults()}
           onEdit={startEdit}
           onUseGlobalDefault={(service) => void handleUseGlobalDefault(service)}
         />
@@ -364,4 +396,14 @@ function serviceBranchSort(
   const leftWeight = left.branchId === branchFilter ? 0 : 1;
   const rightWeight = right.branchId === branchFilter ? 0 : 1;
   return leftWeight - rightWeight;
+}
+
+async function createPilotDefaults(): Promise<PilotDefaults> {
+  const response = await fetch("/api/admin/pilot-defaults", { method: "POST" });
+  if (!response.ok) {
+    throw new Error(
+      await responseMessage(response, "Unable to prepare pilot defaults."),
+    );
+  }
+  return (await response.json()) as PilotDefaults;
 }

@@ -38,7 +38,7 @@ export function ProductForm({
       </div>
       <div className="grid gap-3">
         <label className="grid gap-1 text-xs font-medium text-ink-muted">
-          Branch
+          Available at
           <Select
             disabled={!owner}
             value={draft.branchId}
@@ -54,29 +54,38 @@ export function ProductForm({
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
-            Product name
+            Item name
             <Input
+              placeholder="Chips pack"
               value={draft.name}
               onChange={(event) => onDraftChange({ name: event.target.value })}
             />
           </label>
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
-            SKU
+            Item code
             <Input
+              placeholder="Auto if blank"
               value={draft.sku}
               onChange={(event) =>
                 onDraftChange({ sku: event.target.value.toUpperCase() })
               }
             />
+            <span className="text-[11px] font-normal text-ink-muted">
+              Optional stock code for your own tracking.
+            </span>
           </label>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
-            HSN code
+            GST item category
             <Input
+              placeholder="Auto for pilot"
               value={draft.hsnCode}
               onChange={(event) => onDraftChange({ hsnCode: event.target.value })}
             />
+            <span className="text-[11px] font-normal text-ink-muted">
+              Optional for pilot. Confirm real HSN codes with the CA later.
+            </span>
           </label>
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
             Price including GST
@@ -90,18 +99,21 @@ export function ProductForm({
           </label>
         </div>
         <label className="grid gap-1 text-xs font-medium text-ink-muted">
-          GST rate
+          GST on this item
           <Select
             value={draft.taxRateId}
             onChange={(event) => onDraftChange({ taxRateId: event.target.value })}
           >
-            <option value="">Select GST rate</option>
+            <option value="">Use default retail GST</option>
             {hsnRates.map((taxRate) => (
               <option key={taxRate.id} value={taxRate.id}>
                 {taxRate.code} - {taxRate.gstRate}% - {taxRate.description}
               </option>
             ))}
           </Select>
+          <span className="text-[11px] font-normal text-ink-muted">
+            You can leave this as default while testing.
+          </span>
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
@@ -157,7 +169,7 @@ export function ProductForm({
             Active
           </label>
         </div>
-        <Button disabled={pending || !draft.taxRateId} onClick={onSave}>
+        <Button disabled={pending} onClick={onSave}>
           {selectedProduct ? "Save product" : "Create product"}
         </Button>
         {selectedProduct ? (

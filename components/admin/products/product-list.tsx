@@ -79,7 +79,7 @@ export function ProductList({
               <div>
                 <p className="font-semibold text-ink">{product.name}</p>
                 <p className="text-xs text-ink-muted">
-                  SKU {product.sku} - HSN {product.hsnCode} -{" "}
+                  Code {product.sku} - GST category {product.hsnCode} -{" "}
                   {product.branch?.name ?? "All branches"}
                 </p>
               </div>

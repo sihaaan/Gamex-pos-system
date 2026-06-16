@@ -119,19 +119,16 @@ For production, do not run `npm run db:seed`. After migrations, create the first
 
 ```bash
 BOOTSTRAP_LEGAL_ENTITY_NAME="Real Business Name" \
-BOOTSTRAP_GSTIN="29XXXXXXXXXXZX" \
-BOOTSTRAP_LEGAL_ENTITY_ADDRESS="Registered address" \
-BOOTSTRAP_STATE_CODE="29" \
 BOOTSTRAP_BRANCH_NAME="Main Branch" \
-BOOTSTRAP_BRANCH_CODE="B01" \
-BOOTSTRAP_BRANCH_ADDRESS="Branch address" \
 BOOTSTRAP_OWNER_NAME="Owner Name" \
 BOOTSTRAP_OWNER_EMAIL="owner@example.com" \
 BOOTSTRAP_OWNER_PASSWORD="<strong temporary password>" \
 npm run bootstrap:owner
 ```
 
-Then sign in as the owner, rotate the temporary password, and configure real resources, products, pricing, GST rates, invoice series, users, and branch settings from Admin.
+Optional bootstrap fields include `BOOTSTRAP_GSTIN`, `BOOTSTRAP_LEGAL_ENTITY_ADDRESS`, `BOOTSTRAP_STATE_CODE`, `BOOTSTRAP_BRANCH_CODE`, `BOOTSTRAP_BRANCH_ADDRESS`, and `BOOTSTRAP_BRANCH_STATE_CODE`. If omitted, the script uses obvious pending placeholders so a family pilot can get started quickly.
+
+Then sign in as the owner, rotate the temporary password, update Business profile and Branches from Admin, and configure real resources, products, pricing, GST rates, invoice series, and users before posting real invoices.
 
 ## Docker
 

@@ -221,6 +221,14 @@ export const adminStateChangeSchema = z.object({
   reason: z.string().trim().min(3).max(240).optional(),
 });
 
+export const adminLegalEntityUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  gstin: z.string().trim().min(2).max(15).toUpperCase(),
+  address: z.string().trim().min(3).max(240),
+  stateCode: z.string().trim().regex(/^\d{2}$/, "Use a two-digit GST state code."),
+  reason: z.string().trim().min(3).max(240).optional(),
+});
+
 export const floorLayoutItemSchema = z.object({
   resourceId: cuidSchema,
   x: z.number().int().min(0).max(99),

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomBytes } from "crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { hashPassword } from "../lib/auth/password";
@@ -15,12 +16,7 @@ const prisma = new PrismaClient({
 
 const requiredVars = [
   "BOOTSTRAP_LEGAL_ENTITY_NAME",
-  "BOOTSTRAP_GSTIN",
-  "BOOTSTRAP_LEGAL_ENTITY_ADDRESS",
-  "BOOTSTRAP_STATE_CODE",
   "BOOTSTRAP_BRANCH_NAME",
-  "BOOTSTRAP_BRANCH_CODE",
-  "BOOTSTRAP_BRANCH_ADDRESS",
   "BOOTSTRAP_OWNER_NAME",
   "BOOTSTRAP_OWNER_EMAIL",
   "BOOTSTRAP_OWNER_PASSWORD",
@@ -32,6 +28,15 @@ function env(name: (typeof requiredVars)[number]): string {
     throw new Error(`${name} is required.`);
   }
   return value.trim();
+}
+
+function optionalEnv(name: string, fallback: string): string {
+  const value = process.env[name];
+  return value && value.trim().length > 0 ? value.trim() : fallback;
+}
+
+function pendingGstin(): string {
+  return `PENDING${randomBytes(4).toString("hex").toUpperCase()}`;
 }
 
 function assertStrongBootstrapPassword(password: string): void {
@@ -79,9 +84,12 @@ async function main() {
     const legalEntity = await tx.legalEntity.create({
       data: {
         name: env("BOOTSTRAP_LEGAL_ENTITY_NAME"),
-        gstin: env("BOOTSTRAP_GSTIN"),
-        address: env("BOOTSTRAP_LEGAL_ENTITY_ADDRESS"),
-        stateCode: env("BOOTSTRAP_STATE_CODE"),
+        gstin: optionalEnv("BOOTSTRAP_GSTIN", pendingGstin()).toUpperCase(),
+        address: optionalEnv(
+          "BOOTSTRAP_LEGAL_ENTITY_ADDRESS",
+          "Pending legal entity address",
+        ),
+        stateCode: optionalEnv("BOOTSTRAP_STATE_CODE", "29"),
       },
       select: { id: true, name: true },
     });
@@ -90,11 +98,12 @@ async function main() {
       data: {
         legalEntityId: legalEntity.id,
         name: env("BOOTSTRAP_BRANCH_NAME"),
-        code: env("BOOTSTRAP_BRANCH_CODE"),
-        address: env("BOOTSTRAP_BRANCH_ADDRESS"),
+        code: optionalEnv("BOOTSTRAP_BRANCH_CODE", "B01").toUpperCase(),
+        address: optionalEnv("BOOTSTRAP_BRANCH_ADDRESS", "Pending branch address"),
         stateCode:
           process.env.BOOTSTRAP_BRANCH_STATE_CODE?.trim() ||
-          env("BOOTSTRAP_STATE_CODE"),
+          process.env.BOOTSTRAP_STATE_CODE?.trim() ||
+          "29",
       },
       select: { id: true, name: true },
     });
@@ -118,7 +127,9 @@ async function main() {
   console.log(`Legal entity: ${result.legalEntity.name}`);
   console.log(`Branch: ${result.branch.name}`);
   console.log(`Owner email: ${result.owner.email}`);
-  console.log("Sign in and immediately rotate this password after first login.");
+  console.log(
+    "Sign in, then update pending GST/legal/branch details from Admin before posting real invoices.",
+  );
 }
 
 main()

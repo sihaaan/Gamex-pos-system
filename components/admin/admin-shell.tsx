@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Building2,
   BadgePercent,
+  FileText,
   Gamepad2,
   IndianRupee,
   LayoutDashboard,
@@ -222,6 +223,12 @@ export function AdminShell() {
           href="/admin/users"
           icon={<Users className="h-5 w-5" />}
           title="Users"
+        />
+        <AdminCard
+          description="Legal entity GSTIN, address, and state code."
+          href="/admin/business"
+          icon={<FileText className="h-5 w-5" />}
+          title="Business profile"
         />
         <AdminCard
           description="GST branch details, status, and resource counts."

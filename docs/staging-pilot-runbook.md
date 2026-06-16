@@ -114,13 +114,7 @@ PowerShell:
 
 ```powershell
 $env:BOOTSTRAP_LEGAL_ENTITY_NAME="Real Business Name"
-$env:BOOTSTRAP_GSTIN="29XXXXXXXXXXZX"
-$env:BOOTSTRAP_LEGAL_ENTITY_ADDRESS="Registered address"
-$env:BOOTSTRAP_STATE_CODE="29"
 $env:BOOTSTRAP_BRANCH_NAME="Main Branch"
-$env:BOOTSTRAP_BRANCH_CODE="B01"
-$env:BOOTSTRAP_BRANCH_ADDRESS="Branch address"
-$env:BOOTSTRAP_BRANCH_STATE_CODE="29"
 $env:BOOTSTRAP_OWNER_NAME="Owner Name"
 $env:BOOTSTRAP_OWNER_EMAIL="owner@example.com"
 $env:BOOTSTRAP_OWNER_PASSWORD="<strong temporary password>"
@@ -131,18 +125,23 @@ Bash:
 
 ```bash
 BOOTSTRAP_LEGAL_ENTITY_NAME="Real Business Name" \
-BOOTSTRAP_GSTIN="29XXXXXXXXXXZX" \
-BOOTSTRAP_LEGAL_ENTITY_ADDRESS="Registered address" \
-BOOTSTRAP_STATE_CODE="29" \
 BOOTSTRAP_BRANCH_NAME="Main Branch" \
-BOOTSTRAP_BRANCH_CODE="B01" \
-BOOTSTRAP_BRANCH_ADDRESS="Branch address" \
-BOOTSTRAP_BRANCH_STATE_CODE="29" \
 BOOTSTRAP_OWNER_NAME="Owner Name" \
 BOOTSTRAP_OWNER_EMAIL="owner@example.com" \
 BOOTSTRAP_OWNER_PASSWORD="<strong temporary password>" \
 npm run bootstrap:owner
 ```
+
+Optional bootstrap fields:
+
+- `BOOTSTRAP_GSTIN`
+- `BOOTSTRAP_LEGAL_ENTITY_ADDRESS`
+- `BOOTSTRAP_STATE_CODE`
+- `BOOTSTRAP_BRANCH_CODE`
+- `BOOTSTRAP_BRANCH_ADDRESS`
+- `BOOTSTRAP_BRANCH_STATE_CODE`
+
+If these are omitted, the script uses pending placeholders. Update them later from Admin before treating invoices as real GST invoices.
 
 Expected result:
 
@@ -157,13 +156,13 @@ Sign in as owner and rotate the temporary password immediately if the pilot will
 
 ## Step 5: Configure GSTIN/Address/Invoice Series
 
-Login as owner.
+Login as owner and open Admin.
 
 Check:
 
-- Legal entity name is correct.
-- GSTIN is correct.
-- Registered address is correct.
+- Business profile legal entity name is correct.
+- Business profile GSTIN is correct.
+- Business profile registered address is correct.
 - Branch name/code/address are correct.
 - State code is correct.
 - Invoice series exists for the branch and financial year.

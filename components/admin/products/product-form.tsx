@@ -52,7 +52,7 @@ export function ProductForm({
             ))}
           </Select>
         </label>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid items-start gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
             Item name
             <Input
@@ -75,7 +75,7 @@ export function ProductForm({
             </span>
           </label>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid items-start gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
             GST item category
             <Input
@@ -115,7 +115,7 @@ export function ProductForm({
             You can leave this as default while testing.
           </span>
         </label>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid items-start gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
             Current stock
             <Input

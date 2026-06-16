@@ -26,6 +26,9 @@ const defaultServices = [
     sacCode: "9996",
     halfHourPrice: 8000,
     hourPrice: 14000,
+    controllerPricingEnabled: false,
+    multiplayerHalfHourPrice: null,
+    multiplayerHourPrice: null,
   },
   {
     name: "PS5 play",
@@ -33,6 +36,9 @@ const defaultServices = [
     sacCode: "9996",
     halfHourPrice: 8000,
     hourPrice: 14000,
+    controllerPricingEnabled: true,
+    multiplayerHalfHourPrice: 6000,
+    multiplayerHourPrice: 11000,
   },
 ] as const;
 
@@ -82,6 +88,10 @@ export async function POST(): Promise<NextResponse> {
             ratePerMinute: Math.round(serviceInput.hourPrice / 60),
             halfHourPrice: serviceInput.halfHourPrice,
             hourPrice: serviceInput.hourPrice,
+            controllerPricingEnabled: serviceInput.controllerPricingEnabled,
+            multiplayerHalfHourPrice: serviceInput.multiplayerHalfHourPrice,
+            multiplayerHourPrice: serviceInput.multiplayerHourPrice,
+            maxControllers: 4,
             minimumBillableMinutes: 30,
             roundUpToMinutes: 30,
             managerDiscountLimitPercent: 10,

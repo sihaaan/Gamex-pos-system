@@ -36,6 +36,27 @@ describe("pricing and GST invoice draft", () => {
     expect(price(120)).toMatchObject({ chargedMinutes: 120, grossAmount: 28000 });
   });
 
+  it("charges PS5 multiplayer per controller", () => {
+    const price = (controllerCount: number) =>
+      priceTimedService({
+        billableMinutes: 60,
+        pricingMode: "HALF_HOUR_BLOCKS",
+        ratePerMinute: 233,
+        halfHourPrice: 8000,
+        hourPrice: 14000,
+        controllerCount,
+        controllerPricingEnabled: true,
+        multiplayerHalfHourPrice: 6000,
+        multiplayerHourPrice: 11000,
+        minimumBillableMinutes: 30,
+        roundUpToMinutes: 30,
+      });
+
+    expect(price(1)).toMatchObject({ chargedMinutes: 60, grossAmount: 14000 });
+    expect(price(2)).toMatchObject({ chargedMinutes: 60, grossAmount: 22000 });
+    expect(price(4)).toMatchObject({ chargedMinutes: 60, grossAmount: 44000 });
+  });
+
   it("keeps exact block prices in invoice drafts", () => {
     const draft = buildInvoiceDraft({
       invoiceSeriesSnapshot: "GXA012526",

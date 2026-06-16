@@ -441,7 +441,12 @@ export function usePosController(): PosController {
   }, []);
 
   const startSessionForTab = useCallback(
-    async (resource: Resource, tabId: string, targetBillLabel: string) => {
+    async (
+      resource: Resource,
+      tabId: string,
+      targetBillLabel: string,
+      controllerCount = 1,
+    ) => {
       const current = stateRef.current;
       const service = findServiceForResource(
         resource,
@@ -460,6 +465,8 @@ export function usePosController(): PosController {
           tabId,
           serviceCatalogId: service.id,
           resourceId: resource.id,
+          controllerCount:
+            resource.kind === "CONSOLE" ? controllerCount : undefined,
         },
         { successMessage: `${resource.name} added to ${targetBillLabel}.` },
       );
@@ -496,7 +503,14 @@ export function usePosController(): PosController {
       );
       dispatch({
         type: "START_PROMPT_OPENED",
-        prompt: { resource, suggestedLabel },
+        prompt: {
+          resource,
+          suggestedLabel,
+          controllerPricingEnabled:
+            resource.kind === "CONSOLE" &&
+            service.pricingRule.controllerPricingEnabled,
+          maxControllers: service.pricingRule.maxControllers,
+        },
       });
     },
     [setMessage],
@@ -578,7 +592,21 @@ export function usePosController(): PosController {
         const label =
           current.startBillLabel.trim() || current.startPrompt.suggestedLabel;
         const resource = current.startPrompt.resource;
+        const controllerCount = parseControllerCount(
+          current.startControllerCount,
+          current.startPrompt.maxControllers ?? 4,
+        );
         dispatch({ type: "START_PROMPT_CLOSED" });
+
+        if (current.startPrompt.targetTabId) {
+          await startSessionForTab(
+            resource,
+            current.startPrompt.targetTabId,
+            current.startPrompt.targetBillLabel ?? label,
+            controllerCount,
+          );
+          return;
+        }
 
         const payload = await postJson<{ tab: Tab }>(
           "/api/tabs",
@@ -594,7 +622,7 @@ export function usePosController(): PosController {
         }
 
         dispatch({ type: "SESSION_TARGET_SELECTED", tabId: payload.tab.id });
-        await startSessionForTab(resource, payload.tab.id, label);
+        await startSessionForTab(resource, payload.tab.id, label, controllerCount);
       },
       startSession: async (resource: Resource) => {
         const current = stateRef.current;
@@ -603,6 +631,29 @@ export function usePosController(): PosController {
           null;
         if (!current.selectedTabId || !tab) {
           openStartPrompt(resource);
+          return;
+        }
+
+        const service = findServiceForResource(
+          resource,
+          current.bootstrap?.services ?? [],
+        );
+        if (
+          resource.kind === "CONSOLE" &&
+          service?.pricingRule.controllerPricingEnabled
+        ) {
+          const targetBillLabel = billLabel(tab);
+          dispatch({
+            type: "START_PROMPT_OPENED",
+            prompt: {
+              resource,
+              suggestedLabel: targetBillLabel,
+              targetTabId: current.selectedTabId,
+              targetBillLabel,
+              controllerPricingEnabled: true,
+              maxControllers: service.pricingRule.maxControllers,
+            },
+          });
           return;
         }
 
@@ -911,4 +962,12 @@ export function usePosController(): PosController {
     },
     actions,
   };
+}
+
+function parseControllerCount(value: string, maxControllers: number): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) {
+    return 1;
+  }
+  return Math.min(Math.max(parsed, 1), maxControllers);
 }

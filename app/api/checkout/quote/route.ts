@@ -56,14 +56,6 @@ export async function GET(request: Request): Promise<NextResponse> {
       }),
     ]);
 
-    if (!invoiceSeries) {
-      throw new AppError(
-        409,
-        "INVOICE_SERIES_MISSING",
-        "No active invoice series is configured for this branch and financial year.",
-      );
-    }
-
     const draft = buildInvoiceDraft({
       timedLines: tab.timedLines
         .filter((line) => line.status !== "VOIDED")
@@ -76,6 +68,10 @@ export async function GET(request: Request): Promise<NextResponse> {
           ratePerMinute: line.ratePerMinuteSnapshot,
           halfHourPrice: line.halfHourPriceSnapshot,
           hourPrice: line.hourPriceSnapshot,
+          controllerCount: line.controllerCountSnapshot,
+          controllerPricingEnabled: line.controllerPricingEnabledSnapshot,
+          multiplayerHalfHourPrice: line.multiplayerHalfHourPriceSnapshot,
+          multiplayerHourPrice: line.multiplayerHourPriceSnapshot,
           minimumBillableMinutes: line.minimumBillableMinutesSnapshot,
           roundUpToMinutes: line.roundUpToMinutesSnapshot,
           priceOverrideAmount: line.priceOverrideAmount,
@@ -123,7 +119,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         effectiveTo: rule.effectiveTo,
       })),
       discountAmount,
-      invoiceSeriesSnapshot: invoiceSeries.prefix,
+      invoiceSeriesSnapshot: invoiceSeries?.prefix ?? "DRAFT",
       intraState: tab.branch.stateCode === tab.legalEntity.stateCode,
       now,
       branchTimeZone: tab.branch.timezone,

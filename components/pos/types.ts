@@ -27,6 +27,10 @@ export type Service = {
     ratePerMinute: number;
     halfHourPrice: number | null;
     hourPrice: number | null;
+    controllerPricingEnabled: boolean;
+    multiplayerHalfHourPrice: number | null;
+    multiplayerHourPrice: number | null;
+    maxControllers: number;
   };
 };
 
@@ -71,6 +75,7 @@ export type TimedLine = {
   status: "RUNNING" | "PAUSED" | "STOPPED" | "CLOSED" | "VOIDED";
   descriptionSnapshot: string;
   resourceId: string | null;
+  controllerCountSnapshot: number;
   resource?: { name: string } | null;
   sessionEvents?: SessionEvent[];
 };
@@ -191,6 +196,10 @@ export type ShiftCloseSummary = {
 export type StartPrompt = {
   resource: Resource;
   suggestedLabel: string;
+  targetTabId?: string;
+  targetBillLabel?: string;
+  controllerPricingEnabled?: boolean;
+  maxControllers?: number;
 };
 
 export type DiscountType = "AMOUNT" | "PERCENT";

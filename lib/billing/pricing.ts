@@ -4,6 +4,10 @@ export type TimedPricingInput = {
   ratePerMinute: number;
   halfHourPrice?: number | null;
   hourPrice?: number | null;
+  controllerCount?: number | null;
+  controllerPricingEnabled?: boolean | null;
+  multiplayerHalfHourPrice?: number | null;
+  multiplayerHourPrice?: number | null;
   minimumBillableMinutes: number;
   roundUpToMinutes: number;
   priceOverrideAmount?: number | null;
@@ -36,6 +40,36 @@ export function priceTimedService(input: TimedPricingInput): TimedPricingResult 
       Math.ceil(Math.max(input.billableMinutes, minimumMinutes) / 30) * 30;
     const fullHours = Math.floor(chargedMinutes / 60);
     const hasHalfHour = chargedMinutes % 60 > 0;
+    const controllerCount = Math.max(1, input.controllerCount ?? 1);
+    const useMultiplayerControllerPricing =
+      input.controllerPricingEnabled === true &&
+      controllerCount > 1 &&
+      input.multiplayerHalfHourPrice !== undefined &&
+      input.multiplayerHalfHourPrice !== null &&
+      input.multiplayerHourPrice !== undefined &&
+      input.multiplayerHourPrice !== null;
+
+    if (useMultiplayerControllerPricing) {
+      const multiplayerHalfHourPrice = input.multiplayerHalfHourPrice;
+      const multiplayerHourPrice = input.multiplayerHourPrice;
+      if (
+        multiplayerHalfHourPrice === undefined ||
+        multiplayerHalfHourPrice === null ||
+        multiplayerHourPrice === undefined ||
+        multiplayerHourPrice === null
+      ) {
+        throw new Error("Multiplayer controller prices are required.");
+      }
+      const perControllerAmount =
+        fullHours * multiplayerHourPrice +
+        (hasHalfHour ? multiplayerHalfHourPrice : 0);
+
+      return {
+        chargedMinutes,
+        grossAmount: perControllerAmount * controllerCount,
+        pricingRuleUsed: `CONTROLLER_BLOCKS_COUNT_${controllerCount}_30_${multiplayerHalfHourPrice}_60_${multiplayerHourPrice}`,
+      };
+    }
 
     return {
       chargedMinutes,

@@ -84,11 +84,11 @@ async function main() {
     const sac = await ensureTaxRate(entity.id, "9996", "SAC", "Recreation services", 18);
     const beverages = await ensureTaxRate(entity.id, "2202", "HSN", "Beverages", 18);
     const snacks = await ensureTaxRate(entity.id, "2106", "HSN", "Prepared snacks", 18);
-    const pricing = await prisma.pricingRule.upsert({
+    const poolPricing = await prisma.pricingRule.upsert({
       where: {
         legalEntityId_name: {
           legalEntityId: entity.id,
-          name: "Standard minute prorated",
+          name: "Pool block pricing",
         },
       },
       update: {
@@ -96,25 +96,69 @@ async function main() {
         ratePerMinute: 233,
         halfHourPrice: 8000,
         hourPrice: 14000,
+        controllerPricingEnabled: false,
+        multiplayerHalfHourPrice: null,
+        multiplayerHourPrice: null,
+        maxControllers: 4,
         minimumBillableMinutes: 30,
         roundUpToMinutes: 30,
         managerDiscountLimitPercent: 10,
       },
       create: {
         legalEntityId: entity.id,
-        name: "Standard minute prorated",
+        name: "Pool block pricing",
         pricingMode: "HALF_HOUR_BLOCKS",
         ratePerMinute: 233,
         halfHourPrice: 8000,
         hourPrice: 14000,
+        controllerPricingEnabled: false,
+        multiplayerHalfHourPrice: null,
+        multiplayerHourPrice: null,
+        maxControllers: 4,
+        minimumBillableMinutes: 30,
+        roundUpToMinutes: 30,
+        managerDiscountLimitPercent: 10,
+      },
+    });
+    const ps5Pricing = await prisma.pricingRule.upsert({
+      where: {
+        legalEntityId_name: {
+          legalEntityId: entity.id,
+          name: "PS5 controller pricing",
+        },
+      },
+      update: {
+        pricingMode: "HALF_HOUR_BLOCKS",
+        ratePerMinute: 233,
+        halfHourPrice: 8000,
+        hourPrice: 14000,
+        controllerPricingEnabled: true,
+        multiplayerHalfHourPrice: 6000,
+        multiplayerHourPrice: 11000,
+        maxControllers: 4,
+        minimumBillableMinutes: 30,
+        roundUpToMinutes: 30,
+        managerDiscountLimitPercent: 10,
+      },
+      create: {
+        legalEntityId: entity.id,
+        name: "PS5 controller pricing",
+        pricingMode: "HALF_HOUR_BLOCKS",
+        ratePerMinute: 233,
+        halfHourPrice: 8000,
+        hourPrice: 14000,
+        controllerPricingEnabled: true,
+        multiplayerHalfHourPrice: 6000,
+        multiplayerHourPrice: 11000,
+        maxControllers: 4,
         minimumBillableMinutes: 30,
         roundUpToMinutes: 30,
         managerDiscountLimitPercent: 10,
       },
     });
 
-    await ensureService(entity.id, sac.id, pricing.id, "Pool table", "Pool table timed play", "9996");
-    await ensureService(entity.id, sac.id, pricing.id, "PS5 console", "PS5 console timed play", "9996");
+    await ensureService(entity.id, sac.id, poolPricing.id, "Pool table", "Pool table timed play", "9996");
+    await ensureService(entity.id, sac.id, ps5Pricing.id, "PS5 console", "PS5 console timed play", "9996");
 
     for (const branch of branches) {
       await seedBranchResources(entity.id, branch.id);

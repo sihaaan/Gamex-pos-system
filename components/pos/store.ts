@@ -34,6 +34,7 @@ export type PosState = {
   selectedProductId: string;
   startPrompt: StartPrompt | null;
   startBillLabel: string;
+  startControllerCount: string;
   billDetailsOpen: boolean;
   discount: DiscountDraft;
   managerApproval: ManagerApprovalDraft;
@@ -76,6 +77,7 @@ export function initialPosState(): PosState {
     selectedProductId: "",
     startPrompt: null,
     startBillLabel: "",
+    startControllerCount: "1",
     billDetailsOpen: false,
     discount: emptyDiscount,
     managerApproval: emptyManagerApproval,
@@ -113,6 +115,7 @@ export type PosAction =
   | { type: "START_PROMPT_OPENED"; prompt: StartPrompt }
   | { type: "START_PROMPT_CLOSED" }
   | { type: "START_BILL_LABEL_CHANGED"; label: string }
+  | { type: "START_CONTROLLER_COUNT_CHANGED"; controllerCount: string }
   | { type: "CUSTOMER_LABEL_CHANGED"; label: string }
   | { type: "MESSAGE_SET"; message: string | null }
   | { type: "ACTION_PENDING"; pending: boolean }
@@ -209,6 +212,7 @@ export function posReducer(state: PosState, action: PosAction): PosState {
         expandedStoppedLineId: "",
         startPrompt: null,
         startBillLabel: "",
+        startControllerCount: "1",
         billDetailsOpen: false,
         discount: emptyDiscount,
         managerApproval: emptyManagerApproval,
@@ -226,6 +230,7 @@ export function posReducer(state: PosState, action: PosAction): PosState {
         expandedStoppedLineId: "",
         startPrompt: null,
         startBillLabel: "",
+        startControllerCount: "1",
         billDetailsOpen: false,
         discount: emptyDiscount,
         managerApproval: emptyManagerApproval,
@@ -241,12 +246,20 @@ export function posReducer(state: PosState, action: PosAction): PosState {
         ...state,
         startPrompt: action.prompt,
         startBillLabel: action.prompt.suggestedLabel,
+        startControllerCount: "1",
         message: null,
       };
     case "START_PROMPT_CLOSED":
-      return { ...state, startPrompt: null, startBillLabel: "" };
+      return {
+        ...state,
+        startPrompt: null,
+        startBillLabel: "",
+        startControllerCount: "1",
+      };
     case "START_BILL_LABEL_CHANGED":
       return { ...state, startBillLabel: action.label };
+    case "START_CONTROLLER_COUNT_CHANGED":
+      return { ...state, startControllerCount: action.controllerCount };
     case "CUSTOMER_LABEL_CHANGED":
       return { ...state, customerLabel: action.label };
     case "MESSAGE_SET":

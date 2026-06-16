@@ -16,6 +16,10 @@ export type TimedLineSnapshot = {
   ratePerMinute: number;
   halfHourPrice?: number | null;
   hourPrice?: number | null;
+  controllerCount?: number | null;
+  controllerPricingEnabled?: boolean | null;
+  multiplayerHalfHourPrice?: number | null;
+  multiplayerHourPrice?: number | null;
   minimumBillableMinutes: number;
   roundUpToMinutes: number;
   priceOverrideAmount?: number | null;
@@ -192,6 +196,10 @@ function buildTimedGrossLine(
     ratePerMinute: line.ratePerMinute,
     halfHourPrice: line.halfHourPrice,
     hourPrice: line.hourPrice,
+    controllerCount: line.controllerCount,
+    controllerPricingEnabled: line.controllerPricingEnabled,
+    multiplayerHalfHourPrice: line.multiplayerHalfHourPrice,
+    multiplayerHourPrice: line.multiplayerHourPrice,
     minimumBillableMinutes: line.minimumBillableMinutes,
     roundUpToMinutes: line.roundUpToMinutes,
     priceOverrideAmount: line.priceOverrideAmount,
@@ -200,12 +208,20 @@ function buildTimedGrossLine(
   return {
     sourceLineId: line.id,
     lineKind: "SERVICE",
-    description: line.description,
+    description:
+      line.controllerPricingEnabled && line.controllerCount
+        ? `${line.description} (${line.controllerCount} controller${line.controllerCount === 1 ? "" : "s"})`
+        : line.description,
     hsnSac: line.hsnSac,
     gstRatePercent: line.gstRatePercent,
     grossAmount: priced.grossAmount,
     unitPrice:
-      line.pricingMode === "HALF_HOUR_BLOCKS" && line.hourPrice
+      line.pricingMode === "HALF_HOUR_BLOCKS" &&
+      line.controllerPricingEnabled &&
+      (line.controllerCount ?? 1) > 1 &&
+      line.multiplayerHourPrice
+        ? line.multiplayerHourPrice * (line.controllerCount ?? 1)
+        : line.pricingMode === "HALF_HOUR_BLOCKS" && line.hourPrice
         ? line.hourPrice
         : line.ratePerMinute,
     billableMinutes: priced.chargedMinutes,

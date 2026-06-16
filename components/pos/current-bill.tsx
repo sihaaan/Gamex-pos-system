@@ -123,8 +123,7 @@ function BillHeaderCard({ controller }: { controller: PosController }) {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate font-semibold">
-                    {line.resource?.name ??
-                      staffServiceName(line.descriptionSnapshot)}
+                    {timedLineDisplayName(line)}
                   </span>
                   <Badge tone={timedLineBadgeTone(line.status)}>
                     {statusLabel(line.status)}
@@ -234,8 +233,7 @@ function ActiveGames({ controller }: { controller: PosController }) {
                 <span className="flex items-center justify-between gap-3">
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-ink">
-                      {line.resource?.name ??
-                        staffServiceName(line.descriptionSnapshot)}
+                      {timedLineDisplayName(line)}
                     </span>
                     <span className="mt-0.5 block truncate text-xs text-ink-muted">
                       {staffServiceName(line.descriptionSnapshot)}
@@ -422,7 +420,9 @@ function BillItems({ controller }: { controller: PosController }) {
   if (!quote) {
     return (
       <div className="rounded-md bg-surface-muted p-3 text-sm text-ink-muted">
-        {state.quoteLoading ? "Calculating bill..." : "Select a bill to see items."}
+        {state.quoteLoading
+          ? "Calculating bill..."
+          : "Bill total is unavailable. Check pricing and GST setup."}
       </div>
     );
   }
@@ -450,7 +450,7 @@ function BillItems({ controller }: { controller: PosController }) {
             : false;
           const lineLabel =
             sourceTimedLine?.resource?.name && line.billableMinutes
-              ? `${sourceTimedLine.resource.name} - ${line.billableMinutes} min`
+              ? `${timedLineDisplayName(sourceTimedLine)} - ${line.billableMinutes} min`
               : staffInvoiceLineLabel(line);
 
           return (
@@ -712,6 +712,18 @@ function TimingStat({ label, value }: { label: string; value: string }) {
       </p>
     </div>
   );
+}
+
+function timedLineDisplayName(line: {
+  descriptionSnapshot: string;
+  controllerCountSnapshot?: number;
+  resource?: { name: string } | null;
+}): string {
+  const base = line.resource?.name ?? staffServiceName(line.descriptionSnapshot);
+  const controllerCount = line.controllerCountSnapshot ?? 1;
+  return controllerCount > 1
+    ? `${base} (${controllerCount} controllers)`
+    : base;
 }
 
 function BreakdownRow({

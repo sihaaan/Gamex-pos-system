@@ -234,6 +234,10 @@ function rateLabel(service: Pick<ServiceRow, "pricingRule"> | null): string {
 }
 
 function pricingNote(service: Pick<ServiceRow, "pricingRule">): string {
+  if (service.pricingRule.controllerPricingEnabled) {
+    return "1 controller uses normal price; 2-4 use multiplayer price per controller";
+  }
+
   if (service.pricingRule.pricingMode === "HALF_HOUR_BLOCKS") {
     return "Charged in 30-minute blocks";
   }

@@ -98,6 +98,20 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
+    const controllerCount =
+      resource.kind === "CONSOLE" ? (input.controllerCount ?? 1) : 1;
+    if (controllerCount > service.pricingRule.maxControllers) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "TOO_MANY_CONTROLLERS",
+            message: `This service allows up to ${service.pricingRule.maxControllers} controllers.`,
+          },
+        },
+        { status: 400 },
+      );
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const timedLine = await tx.tabTimedLine.create({
         data: {
@@ -114,6 +128,13 @@ export async function POST(request: Request): Promise<NextResponse> {
           ratePerMinuteSnapshot: service.pricingRule.ratePerMinute,
           halfHourPriceSnapshot: service.pricingRule.halfHourPrice,
           hourPriceSnapshot: service.pricingRule.hourPrice,
+          controllerCountSnapshot: controllerCount,
+          controllerPricingEnabledSnapshot:
+            service.pricingRule.controllerPricingEnabled,
+          multiplayerHalfHourPriceSnapshot:
+            service.pricingRule.multiplayerHalfHourPrice,
+          multiplayerHourPriceSnapshot:
+            service.pricingRule.multiplayerHourPrice,
           minimumBillableMinutesSnapshot:
             service.pricingRule.minimumBillableMinutes,
           roundUpToMinutesSnapshot: service.pricingRule.roundUpToMinutes,
@@ -130,7 +151,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           actorUserId: auth.userId,
           operatorShiftId: activeShift.id,
           eventType: "STARTED",
-          metadata: {},
+          metadata: { controllerCount },
         },
       });
 

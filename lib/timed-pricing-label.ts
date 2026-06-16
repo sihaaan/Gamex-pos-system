@@ -5,6 +5,9 @@ export type TimedPricingLabelRule = {
   ratePerMinute: number;
   halfHourPrice?: number | null;
   hourPrice?: number | null;
+  controllerPricingEnabled?: boolean | null;
+  multiplayerHalfHourPrice?: number | null;
+  multiplayerHourPrice?: number | null;
 };
 
 export function timedPricingLabel(rule: TimedPricingLabelRule): string {
@@ -15,7 +18,17 @@ export function timedPricingLabel(rule: TimedPricingLabelRule): string {
     rule.hourPrice !== undefined &&
     rule.hourPrice !== null
   ) {
-    return `${formatPaise(rule.halfHourPrice)}/30 min + ${formatPaise(rule.hourPrice)}/hr`;
+    const baseLabel = `${formatPaise(rule.halfHourPrice)}/30 min + ${formatPaise(rule.hourPrice)}/hr`;
+    if (
+      rule.controllerPricingEnabled &&
+      rule.multiplayerHalfHourPrice !== undefined &&
+      rule.multiplayerHalfHourPrice !== null &&
+      rule.multiplayerHourPrice !== undefined &&
+      rule.multiplayerHourPrice !== null
+    ) {
+      return `${baseLabel}; multi ${formatPaise(rule.multiplayerHalfHourPrice)}/30 min + ${formatPaise(rule.multiplayerHourPrice)}/hr per controller`;
+    }
+    return baseLabel;
   }
 
   return `${formatPaise(rule.ratePerMinute * 60)}/hr`;

@@ -15,6 +15,10 @@ export type ServiceRow = {
     ratePerMinute: number;
     halfHourPrice: number | null;
     hourPrice: number | null;
+    controllerPricingEnabled: boolean;
+    multiplayerHalfHourPrice: number | null;
+    multiplayerHourPrice: number | null;
+    maxControllers: number;
     minimumBillableMinutes: number;
     roundUpToMinutes: number;
     managerDiscountLimitPercent: number;
@@ -29,6 +33,10 @@ export type ServiceDraft = {
   description: string;
   halfHourPrice: string;
   hourPrice: string;
+  controllerPricingEnabled: boolean;
+  multiplayerHalfHourPrice: string;
+  multiplayerHourPrice: string;
+  maxControllers: string;
   minimumBillableMinutes: string;
   roundUpToMinutes: string;
   managerDiscountLimitPercent: string;
@@ -44,6 +52,10 @@ export const emptyServiceDraft: ServiceDraft = {
   description: "",
   halfHourPrice: "80",
   hourPrice: "140",
+  controllerPricingEnabled: false,
+  multiplayerHalfHourPrice: "60",
+  multiplayerHourPrice: "110",
+  maxControllers: "4",
   minimumBillableMinutes: "30",
   roundUpToMinutes: "30",
   managerDiscountLimitPercent: "10",

@@ -317,6 +317,11 @@ export function StartPromptDialog({
   if (!state.startPrompt) {
     return null;
   }
+  const controllerOptions = Array.from(
+    { length: state.startPrompt.maxControllers ?? 1 },
+    (_, index) => String(index + 1),
+  );
+  const addingToExistingBill = Boolean(state.startPrompt.targetTabId);
 
   return (
     <div
@@ -337,25 +342,64 @@ export function StartPromptDialog({
             className="text-lg font-semibold tracking-normal text-ink"
             id="start-play-title"
           >
-            Start play on {state.startPrompt.resource.name}
+            {addingToExistingBill ? "Add game" : "Start play"} on{" "}
+            {state.startPrompt.resource.name}
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Create a bill and start this game in one step.
+            {addingToExistingBill
+              ? `Add this game to ${state.startPrompt.targetBillLabel}.`
+              : "Create a bill and start this game in one step."}
           </p>
         </div>
-        <label className="grid gap-1.5 text-sm font-medium text-ink-muted">
-          Customer / table name
-          <Input
-            autoFocus
-            value={state.startBillLabel}
-            onChange={(event) =>
-              actions.dispatch({
-                type: "START_BILL_LABEL_CHANGED",
-                label: event.target.value,
-              })
-            }
-          />
-        </label>
+        {addingToExistingBill ? null : (
+          <label className="grid gap-1.5 text-sm font-medium text-ink-muted">
+            Customer / table name
+            <Input
+              autoFocus
+              value={state.startBillLabel}
+              onChange={(event) =>
+                actions.dispatch({
+                  type: "START_BILL_LABEL_CHANGED",
+                  label: event.target.value,
+                })
+              }
+            />
+          </label>
+        )}
+        {state.startPrompt.controllerPricingEnabled ? (
+          <div className="grid gap-2">
+            <p className="text-sm font-medium text-ink-muted">Controllers</p>
+            <div className="grid grid-cols-4 gap-2">
+              {controllerOptions.map((option) => {
+                const selected = state.startControllerCount === option;
+                return (
+                  <button
+                    key={option}
+                    className={cn(
+                      "min-h-11 rounded-lg border px-3 text-sm font-semibold transition",
+                      selected
+                        ? "border-brand bg-brand text-white dark:text-zinc-950"
+                        : "border-line-strong bg-surface text-ink hover:border-brand",
+                    )}
+                    onClick={() =>
+                      actions.dispatch({
+                        type: "START_CONTROLLER_COUNT_CHANGED",
+                        controllerCount: option,
+                      })
+                    }
+                    type="button"
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-ink-muted">
+              1 controller uses single-player pricing. 2-4 use multiplayer
+              pricing per controller.
+            </p>
+          </div>
+        ) : null}
         <div className="flex justify-end gap-2">
           <Button
             disabled={state.actionPending}
@@ -367,7 +411,7 @@ export function StartPromptDialog({
           </Button>
           <Button disabled={state.actionPending} type="submit">
             <CirclePlay className="h-4 w-4" />
-            Start play
+            {addingToExistingBill ? "Add game" : "Start play"}
           </Button>
         </div>
       </form>

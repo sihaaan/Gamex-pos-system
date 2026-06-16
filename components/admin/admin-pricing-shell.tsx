@@ -224,6 +224,19 @@ export function AdminPricingShell() {
       if (halfHourPrice <= 0 || hourPrice <= 0) {
         throw new Error("Enter both the 30 min price and 1 hour price.");
       }
+      const multiplayerHalfHourPrice = rupeeInputToPaise(
+        draft.multiplayerHalfHourPrice,
+      );
+      const multiplayerHourPrice = rupeeInputToPaise(
+        draft.multiplayerHourPrice,
+      );
+      const controllerPricingEnabled = draft.controllerPricingEnabled;
+      if (
+        controllerPricingEnabled &&
+        (multiplayerHalfHourPrice <= 0 || multiplayerHourPrice <= 0)
+      ) {
+        throw new Error("Enter the multiplayer controller prices.");
+      }
       const response = await fetch(
         editing
           ? `/api/admin/services/${selectedServiceId}`
@@ -241,6 +254,17 @@ export function AdminPricingShell() {
             ratePerMinute: Math.round(hourPrice / 60),
             halfHourPrice,
             hourPrice,
+            controllerPricingEnabled,
+            multiplayerHalfHourPrice: controllerPricingEnabled
+              ? multiplayerHalfHourPrice
+              : null,
+            multiplayerHourPrice: controllerPricingEnabled
+              ? multiplayerHourPrice
+              : null,
+            maxControllers: Math.min(
+              Math.max(Number(draft.maxControllers) || 4, 1),
+              4,
+            ),
             minimumBillableMinutes: 30,
             roundUpToMinutes: 30,
             managerDiscountLimitPercent: Number(
@@ -409,7 +433,14 @@ async function createPilotDefaults(): Promise<PilotDefaults> {
 
 function pricingDraftFromService(service: ServiceRow): Pick<
   ServiceDraft,
-  "halfHourPrice" | "hourPrice" | "minimumBillableMinutes" | "roundUpToMinutes"
+  | "halfHourPrice"
+  | "hourPrice"
+  | "controllerPricingEnabled"
+  | "multiplayerHalfHourPrice"
+  | "multiplayerHourPrice"
+  | "maxControllers"
+  | "minimumBillableMinutes"
+  | "roundUpToMinutes"
 > {
   return {
     halfHourPrice: paiseToRupeeInput(
@@ -419,6 +450,16 @@ function pricingDraftFromService(service: ServiceRow): Pick<
     hourPrice: paiseToRupeeInput(
       service.pricingRule.hourPrice ?? service.pricingRule.ratePerMinute * 60,
     ),
+    controllerPricingEnabled:
+      service.pricingRule.controllerPricingEnabled ||
+      service.name.toLowerCase().includes("ps5"),
+    multiplayerHalfHourPrice: paiseToRupeeInput(
+      service.pricingRule.multiplayerHalfHourPrice ?? 6000,
+    ),
+    multiplayerHourPrice: paiseToRupeeInput(
+      service.pricingRule.multiplayerHourPrice ?? 11000,
+    ),
+    maxControllers: String(service.pricingRule.maxControllers),
     minimumBillableMinutes: String(
       service.pricingRule.minimumBillableMinutes,
     ),

@@ -66,6 +66,10 @@ export async function PATCH(
       input.ratePerMinute !== undefined ||
       input.halfHourPrice !== undefined ||
       input.hourPrice !== undefined ||
+      input.controllerPricingEnabled !== undefined ||
+      input.multiplayerHalfHourPrice !== undefined ||
+      input.multiplayerHourPrice !== undefined ||
+      input.maxControllers !== undefined ||
       input.minimumBillableMinutes !== undefined ||
       input.roundUpToMinutes !== undefined ||
       input.managerDiscountLimitPercent !== undefined;
@@ -85,6 +89,17 @@ export async function PATCH(
                 halfHourPrice:
                   input.halfHourPrice ?? before.pricingRule.halfHourPrice,
                 hourPrice: input.hourPrice ?? before.pricingRule.hourPrice,
+                controllerPricingEnabled:
+                  input.controllerPricingEnabled ??
+                  before.pricingRule.controllerPricingEnabled,
+                multiplayerHalfHourPrice:
+                  input.multiplayerHalfHourPrice ??
+                  before.pricingRule.multiplayerHalfHourPrice,
+                multiplayerHourPrice:
+                  input.multiplayerHourPrice ??
+                  before.pricingRule.multiplayerHourPrice,
+                maxControllers:
+                  input.maxControllers ?? before.pricingRule.maxControllers,
                 minimumBillableMinutes:
                   input.minimumBillableMinutes ??
                   before.pricingRule.minimumBillableMinutes,

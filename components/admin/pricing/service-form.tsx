@@ -43,7 +43,10 @@ export function ServiceForm({
 
   function handleGameTypeChange(value: string) {
     if (value === "POOL" || value === "PS5") {
-      onDraftChange(gameTypePresets[value]);
+      onDraftChange({
+        ...gameTypePresets[value],
+        controllerPricingEnabled: value === "PS5",
+      });
       return;
     }
 
@@ -58,6 +61,9 @@ export function ServiceForm({
 
     onDraftChange({ name: "", description: "" });
   }
+
+  const showControllerPricing =
+    selectedGameType === "PS5" || draft.controllerPricingEnabled;
 
   return (
     <aside className="rounded-2xl border border-line bg-surface p-5 shadow-card">
@@ -172,6 +178,64 @@ export function ServiceForm({
           Game time is charged in 30-minute blocks. Example: 90 min = 1 hour
           price + 30 min price.
         </p>
+        {showControllerPricing ? (
+          <div className="grid gap-3 rounded-lg border border-line bg-surface-muted p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-ink-muted">
+              <input
+                checked={draft.controllerPricingEnabled}
+                onChange={(event) =>
+                  onDraftChange({
+                    controllerPricingEnabled: event.target.checked,
+                  })
+                }
+                type="checkbox"
+              />
+              PS5 controller pricing
+            </label>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
+                Multiplayer 30 min/controller
+                <Input
+                  inputMode="decimal"
+                  placeholder="60"
+                  value={draft.multiplayerHalfHourPrice}
+                  onChange={(event) =>
+                    onDraftChange({
+                      multiplayerHalfHourPrice: event.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
+                Multiplayer 1 hour/controller
+                <Input
+                  inputMode="decimal"
+                  placeholder="110"
+                  value={draft.multiplayerHourPrice}
+                  onChange={(event) =>
+                    onDraftChange({
+                      multiplayerHourPrice: event.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
+                Max controllers
+                <Input
+                  inputMode="numeric"
+                  value={draft.maxControllers}
+                  onChange={(event) =>
+                    onDraftChange({ maxControllers: event.target.value })
+                  }
+                />
+              </label>
+            </div>
+            <p className="text-xs text-ink-muted">
+              1 controller uses the normal price. 2-4 controllers use the
+              multiplayer per-controller price.
+            </p>
+          </div>
+        ) : null}
         <label className="grid gap-1 text-xs font-medium text-ink-muted">
           Manager discount limit %
           <Input

@@ -10,6 +10,9 @@ export type PricingDisplayService = {
     ratePerMinute: number;
     halfHourPrice?: number | null;
     hourPrice?: number | null;
+    controllerPricingEnabled?: boolean | null;
+    multiplayerHalfHourPrice?: number | null;
+    multiplayerHourPrice?: number | null;
   };
 };
 

@@ -38,6 +38,9 @@ type Catalog = {
       ratePerMinute: number;
       halfHourPrice: number | null;
       hourPrice: number | null;
+      controllerPricingEnabled: boolean;
+      multiplayerHalfHourPrice: number | null;
+      multiplayerHourPrice: number | null;
       minimumBillableMinutes: number;
     };
     taxRate: { gstRate: string; code: string };

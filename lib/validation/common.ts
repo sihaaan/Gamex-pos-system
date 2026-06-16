@@ -73,6 +73,7 @@ export const serviceStartSchema = z.object({
   tabId: cuidSchema,
   serviceCatalogId: cuidSchema,
   resourceId: cuidSchema,
+  controllerCount: z.number().int().min(1).max(4).optional(),
 });
 
 export const serviceLineActionSchema = z.object({
@@ -342,6 +343,10 @@ export const adminServiceCreateSchema = z.object({
   ratePerMinute: paiseSchema,
   halfHourPrice: paiseSchema.nullable().optional(),
   hourPrice: paiseSchema.nullable().optional(),
+  controllerPricingEnabled: z.boolean().default(false),
+  multiplayerHalfHourPrice: paiseSchema.nullable().optional(),
+  multiplayerHourPrice: paiseSchema.nullable().optional(),
+  maxControllers: z.number().int().min(1).max(4).default(4),
   minimumBillableMinutes: z.number().int().min(1).max(1440),
   roundUpToMinutes: z.number().int().min(1).max(240),
   managerDiscountLimitPercent: z.number().int().min(0).max(100).default(10),
@@ -358,6 +363,10 @@ export const adminServiceUpdateSchema = z.object({
   ratePerMinute: paiseSchema.optional(),
   halfHourPrice: paiseSchema.nullable().optional(),
   hourPrice: paiseSchema.nullable().optional(),
+  controllerPricingEnabled: z.boolean().optional(),
+  multiplayerHalfHourPrice: paiseSchema.nullable().optional(),
+  multiplayerHourPrice: paiseSchema.nullable().optional(),
+  maxControllers: z.number().int().min(1).max(4).optional(),
   minimumBillableMinutes: z.number().int().min(1).max(1440).optional(),
   roundUpToMinutes: z.number().int().min(1).max(240).optional(),
   managerDiscountLimitPercent: z.number().int().min(0).max(100).optional(),

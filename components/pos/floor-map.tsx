@@ -214,7 +214,7 @@ export function FloorMap({
                     {use
                       ? elapsedLineLabel(use.line)
                       : service
-                        ? `${formatPaise(service.pricingRule.ratePerMinute)}/min`
+                        ? `${formatPaise(service.pricingRule.ratePerMinute * 60)}/hr`
                         : statusText[status]}
                   </span>
                 </button>

@@ -26,12 +26,10 @@ const branchPs5 = service({
 });
 
 describe("admin pricing display rules", () => {
-  it("labels global rows as inherited when viewed inside a branch scope", () => {
-    expect(pricingScopeLabel(globalPool, "branch-1")).toBe(
-      "Inherited from global default",
-    );
-    expect(pricingScopeLabel(globalPool, null)).toBe("Global default");
-    expect(pricingScopeLabel(branchPs5, "branch-1")).toBe("Branch override");
+  it("labels global rows as using the default when viewed inside a branch scope", () => {
+    expect(pricingScopeLabel(globalPool, "branch-1")).toBe("Using default price");
+    expect(pricingScopeLabel(globalPool, null)).toBe("Default price");
+    expect(pricingScopeLabel(branchPs5, "branch-1")).toBe("Branch price");
   });
 
   it("uses edit wording that matches the action being taken", () => {
@@ -41,21 +39,21 @@ describe("admin pricing display rules", () => {
         role: "MANAGER",
         effectiveBranchId: "branch-1",
       }),
-    ).toBe("Create branch override");
+    ).toBe("Set branch price");
     expect(
       pricingEditActionLabel({
         service: globalPs5,
         role: "OWNER",
         effectiveBranchId: null,
       }),
-    ).toBe("Edit global default");
+    ).toBe("Edit default price");
     expect(
       pricingEditActionLabel({
         service: branchPs5,
         role: "MANAGER",
         effectiveBranchId: "branch-1",
       }),
-    ).toBe("Edit branch override");
+    ).toBe("Edit branch price");
   });
 
   it("uses an active branch override as the effective POS rate", () => {

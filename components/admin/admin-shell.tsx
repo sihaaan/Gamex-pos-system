@@ -466,7 +466,7 @@ export function AdminShell() {
                   {service.pricingRule.minimumBillableMinutes} min
                 </p>
               </div>
-              <Badge>{formatPaise(service.pricingRule.ratePerMinute)}/min</Badge>
+              <Badge>{formatPaise(service.pricingRule.ratePerMinute * 60)}/hr</Badge>
             </Row>
           ))}
         </Panel>

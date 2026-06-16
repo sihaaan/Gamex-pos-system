@@ -179,7 +179,7 @@ export function SessionControls({
                   <span className="mt-auto text-sm text-ink-muted">
                     {cashierServiceName(service)} -{" "}
                     <span className="font-semibold tabular-nums text-ink">
-                      {formatPaise(service.pricingRule.ratePerMinute)}/min
+                      {formatPaise(service.pricingRule.ratePerMinute * 60)}/hr
                     </span>
                   </span>
                 ) : (
@@ -237,7 +237,7 @@ export function SessionControls({
                       <UserRound className="h-4 w-4" />
                       Open bill
                     </Button>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
                       {resourceUse.line.status === "PAUSED" ? (
                         <Button
                           className="min-h-11"

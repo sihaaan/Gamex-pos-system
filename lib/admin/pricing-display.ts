@@ -24,11 +24,11 @@ export function pricingServiceFamilyKey(service: PricingDisplayService): string 
 export function pricingScopeLabel(
   service: PricingDisplayService,
   effectiveBranchId: string | null,
-): "Global default" | "Inherited from global default" | "Branch override" {
+): "Default price" | "Using default price" | "Branch price" {
   if (service.branchId) {
-    return "Branch override";
+    return "Branch price";
   }
-  return effectiveBranchId ? "Inherited from global default" : "Global default";
+  return effectiveBranchId ? "Using default price" : "Default price";
 }
 
 export function pricingEditActionLabel({
@@ -39,14 +39,14 @@ export function pricingEditActionLabel({
   service: PricingDisplayService;
   role: AdminPricingRole;
   effectiveBranchId: string | null;
-}): "Create branch override" | "Edit global default" | "Edit branch override" {
+}): "Set branch price" | "Edit default price" | "Edit branch price" {
   if (service.branchId) {
-    return "Edit branch override";
+    return "Edit branch price";
   }
   if (role === "MANAGER" && effectiveBranchId) {
-    return "Create branch override";
+    return "Set branch price";
   }
-  return "Edit global default";
+  return "Edit default price";
 }
 
 export function activeGlobalDefaultForService<TService extends PricingDisplayService>(

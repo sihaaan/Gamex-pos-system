@@ -57,9 +57,7 @@ export function ServiceList({
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-ink">
-          Timed service catalog
-        </h2>
+        <h2 className="text-base font-semibold text-ink">Services &amp; prices</h2>
         <Button onClick={onCreate} variant="secondary">
           <Plus className="h-4 w-4" />
           New service
@@ -142,24 +140,20 @@ export function ServiceList({
 
               <div className="grid gap-2 rounded-md bg-surface-muted p-3 text-xs text-ink-muted sm:grid-cols-3">
                 <p>
-                  <span className="font-semibold text-ink">
-                    Global default:
-                  </span>{" "}
+                  <span className="font-semibold text-ink">Default price:</span>{" "}
                   {rateLabel(globalDefault)}
                 </p>
                 {effectiveBranch ? (
                   <p>
-                    <span className="font-semibold text-ink">
-                      Branch override:
-                    </span>{" "}
+                    <span className="font-semibold text-ink">This branch:</span>{" "}
                     {rateLabel(branchOverride)}
                   </p>
                 ) : null}
                 <p>
                   <span className="font-semibold text-ink">
                     {effectiveBranch
-                      ? `Effective for ${effectiveBranch.name}:`
-                      : "Effective POS rate:"}
+                      ? `Charged at ${effectiveBranch.name}:`
+                      : "Price at checkout:"}
                   </span>{" "}
                   {rateLabel(effectiveService)}
                 </p>
@@ -167,8 +161,8 @@ export function ServiceList({
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-ink-muted">
-                  Minimum {service.pricingRule.minimumBillableMinutes} min,
-                  round to {service.pricingRule.roundUpToMinutes} min
+                  Bills a minimum of {service.pricingRule.minimumBillableMinutes}{" "}
+                  min, rounded up to {service.pricingRule.roundUpToMinutes} min
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {canUseGlobalDefault ? (
@@ -177,7 +171,7 @@ export function ServiceList({
                       onClick={() => onUseGlobalDefault(service)}
                       variant="secondary"
                     >
-                      Use global default
+                      Use default price
                     </Button>
                   ) : null}
                   <Button
@@ -205,17 +199,14 @@ export function ServiceList({
 function scopeBadgeTone(
   scopeLabel: ReturnType<typeof pricingScopeLabel>,
 ): "neutral" | "success" | "warning" | "danger" {
-  if (scopeLabel === "Branch override") {
+  if (scopeLabel === "Branch price") {
     return "success";
-  }
-  if (scopeLabel === "Inherited from global default") {
-    return "warning";
   }
   return "neutral";
 }
 
 function rateLabel(service: Pick<ServiceRow, "pricingRule"> | null): string {
   return service
-    ? `${formatPaise(service.pricingRule.ratePerMinute)}/min`
+    ? `${formatPaise(service.pricingRule.ratePerMinute * 60)}/hr`
     : "Not set";
 }

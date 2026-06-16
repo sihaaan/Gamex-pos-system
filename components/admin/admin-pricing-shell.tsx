@@ -173,7 +173,7 @@ export function AdminPricingShell() {
         name: service.name,
         sacCode: service.sacCode,
         description: service.description,
-        ratePerMinute: paiseToRupeeInput(service.pricingRule.ratePerMinute),
+        ratePerHour: paiseToRupeeInput(service.pricingRule.ratePerMinute * 60),
         minimumBillableMinutes: String(
           service.pricingRule.minimumBillableMinutes,
         ),
@@ -195,7 +195,7 @@ export function AdminPricingShell() {
       name: service.name,
       sacCode: service.sacCode,
       description: service.description,
-      ratePerMinute: paiseToRupeeInput(service.pricingRule.ratePerMinute),
+      ratePerHour: paiseToRupeeInput(service.pricingRule.ratePerMinute * 60),
       minimumBillableMinutes: String(
         service.pricingRule.minimumBillableMinutes,
       ),
@@ -227,7 +227,9 @@ export function AdminPricingShell() {
             name: draft.name,
             sacCode: draft.sacCode,
             description: draft.description,
-            ratePerMinute: rupeeInputToPaise(draft.ratePerMinute),
+            // UI collects the rate per hour; the API/billing model stores paise
+            // per minute, so convert here (₹/hr → paise/hr → paise/min).
+            ratePerMinute: Math.round(rupeeInputToPaise(draft.ratePerHour) / 60),
             minimumBillableMinutes: Number(draft.minimumBillableMinutes),
             roundUpToMinutes: Number(draft.roundUpToMinutes),
             managerDiscountLimitPercent: Number(

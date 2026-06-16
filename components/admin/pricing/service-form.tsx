@@ -91,12 +91,13 @@ export function ServiceForm({
         </label>
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="grid gap-1 text-xs font-medium text-ink-muted">
-            Rate per minute
+            Rate per hour (₹)
             <Input
               inputMode="decimal"
-              value={draft.ratePerMinute}
+              placeholder="300"
+              value={draft.ratePerHour}
               onChange={(event) =>
-                onDraftChange({ ratePerMinute: event.target.value })
+                onDraftChange({ ratePerHour: event.target.value })
               }
             />
           </label>

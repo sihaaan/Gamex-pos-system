@@ -24,7 +24,7 @@ export type ServiceDraft = {
   name: string;
   sacCode: string;
   description: string;
-  ratePerMinute: string;
+  ratePerHour: string;
   minimumBillableMinutes: string;
   roundUpToMinutes: string;
   managerDiscountLimitPercent: string;
@@ -38,7 +38,7 @@ export const emptyServiceDraft: ServiceDraft = {
   name: "",
   sacCode: "9996",
   description: "",
-  ratePerMinute: "",
+  ratePerHour: "",
   minimumBillableMinutes: "10",
   roundUpToMinutes: "5",
   managerDiscountLimitPercent: "10",

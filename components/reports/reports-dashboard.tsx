@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, RefreshCcw } from "lucide-react";
+import { BarChart3, Download, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPaise } from "@/lib/utils";
 
@@ -292,14 +292,21 @@ export function ReportsDashboard() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-normal">Reports</h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              Daily control, GST summaries, tender reconciliation, and CA exports
-              from posted invoices and refunds.
-            </p>
+          <div className="flex items-center gap-3.5">
+            <span className="brand-gradient grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white shadow-sm ring-1 ring-white/15">
+              <BarChart3 className="h-6 w-6" />
+            </span>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-ink">
+                Reports
+              </h1>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                Daily control, GST summaries, tender reconciliation, and CA
+                exports from posted invoices and refunds.
+              </p>
+            </div>
           </div>
           <Button onClick={load} variant="secondary">
             <RefreshCcw className="h-4 w-4" />
@@ -308,11 +315,11 @@ export function ReportsDashboard() {
         </div>
       </section>
 
-      <section className="grid gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm lg:grid-cols-[1fr_1fr_auto]">
+      <section className="grid gap-3 rounded-2xl border border-line bg-surface p-5 shadow-card lg:grid-cols-[1fr_1fr_auto]">
         <label className="grid gap-1 text-xs font-medium text-ink-muted">
           Date range
           <select
-            className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink"
+            className="min-h-10 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink"
             value={preset}
             onChange={(event) => setPreset(event.target.value)}
           >
@@ -328,7 +335,7 @@ export function ReportsDashboard() {
             <label className="grid gap-1 text-xs font-medium text-ink-muted">
               From
               <input
-                className="min-h-10 rounded-md border border-line-strong px-3 text-sm"
+                className="min-h-10 rounded-lg border border-line-strong px-3 text-sm"
                 onChange={(event) => setFrom(event.target.value)}
                 type="date"
                 value={from}
@@ -337,7 +344,7 @@ export function ReportsDashboard() {
             <label className="grid gap-1 text-xs font-medium text-ink-muted">
               To
               <input
-                className="min-h-10 rounded-md border border-line-strong px-3 text-sm"
+                className="min-h-10 rounded-lg border border-line-strong px-3 text-sm"
                 onChange={(event) => setTo(event.target.value)}
                 type="date"
                 value={to}
@@ -356,7 +363,7 @@ export function ReportsDashboard() {
         <label className="grid gap-1 text-xs font-medium text-ink-muted">
           Branch
           <select
-            className="min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink disabled:bg-surface-strong"
+            className="min-h-10 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink disabled:bg-surface-strong"
             disabled={!owner}
             value={branchId}
             onChange={(event) => setBranchId(event.target.value)}
@@ -381,10 +388,11 @@ export function ReportsDashboard() {
         {tabs.map((tab) => (
           <button
             key={tab.key}
-            className={`rounded-md border px-3 py-2 text-sm font-medium ${
+            aria-current={activeTab === tab.key ? "true" : undefined}
+            className={`rounded-lg border px-3.5 py-2 text-sm font-semibold transition ${
               activeTab === tab.key
-                ? "border-brand bg-success-soft text-success-ink"
-                : "border-line bg-surface text-ink-muted"
+                ? "border-brand bg-brand text-white shadow-sm dark:text-zinc-950"
+                : "border-line bg-surface text-ink-muted hover:border-brand hover:text-ink"
             }`}
             onClick={() => setActiveTab(tab.key)}
             type="button"
@@ -395,7 +403,7 @@ export function ReportsDashboard() {
       </section>
 
       {loading ? (
-        <section className="rounded-xl border border-line bg-surface p-4 shadow-sm text-sm text-ink-muted">
+        <section className="rounded-2xl border border-line bg-surface p-5 shadow-card text-sm text-ink-muted">
           Loading reports...
         </section>
       ) : null}
@@ -800,9 +808,9 @@ function ReportSection({
   title: string;
 }) {
   return (
-    <section className="grid gap-4 rounded-xl border border-line bg-surface p-4 shadow-sm">
+    <section className="grid gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h2 className="text-base font-bold tracking-tight text-ink">{title}</h2>
         {actions}
       </div>
       {children}
@@ -820,9 +828,11 @@ function SummaryGrid({ children }: { children: React.ReactNode }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-line bg-surface-muted p-3">
-      <dt className="text-xs font-medium uppercase text-ink-subtle">{label}</dt>
-      <dd className="mt-1 text-base font-semibold">{value}</dd>
+    <div className="rounded-xl border border-line bg-surface-muted p-3.5">
+      <dt className="text-xs font-medium uppercase tracking-wide text-ink-subtle">
+        {label}
+      </dt>
+      <dd className="mt-1 text-lg font-bold tabular-nums text-ink">{value}</dd>
     </div>
   );
 }
@@ -838,19 +848,19 @@ function SimpleTable({
 }) {
   if (rows.length === 0) {
     return (
-      <p className="rounded-md border border-line p-4 text-sm text-ink-muted">
+      <p className="rounded-lg border border-dashed border-line-strong bg-surface-muted p-4 text-sm text-ink-muted">
         {empty}
       </p>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+    <div className="overflow-x-auto rounded-xl border border-line">
+      <table className="w-full min-w-[760px] border-collapse text-left text-sm tabular-nums">
         <thead>
-          <tr className="border-b border-line text-xs uppercase text-ink-subtle">
+          <tr className="border-b border-line bg-surface-muted text-xs uppercase text-ink-subtle">
             {headers.map((header) => (
-              <th key={header} className="px-3 py-2 font-semibold first:pl-0">
+              <th key={header} className="px-3 py-2.5 font-semibold">
                 {header}
               </th>
             ))}
@@ -858,9 +868,12 @@ function SimpleTable({
         </thead>
         <tbody>
           {rows.map((row, index) => (
-            <tr key={index} className="border-b border-line">
+            <tr
+              key={index}
+              className="border-b border-line transition last:border-0 hover:bg-surface-muted"
+            >
               {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="px-3 py-2 align-top first:pl-0">
+                <td key={cellIndex} className="px-3 py-2.5 align-top text-ink">
                   {cell}
                 </td>
               ))}
@@ -881,7 +894,7 @@ function ExportLink({
 }) {
   return (
     <a
-      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-surface-strong"
+      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:bg-surface-strong"
       href={href}
     >
       <Download className="h-4 w-4" />

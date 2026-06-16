@@ -49,7 +49,7 @@ export function ShiftReport() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <h1 className="text-xl font-semibold tracking-normal">Shift reports</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Branch reconciliation across sales, GST, tenders, refunds, voids, and warnings.
@@ -64,7 +64,7 @@ export function ShiftReport() {
         {summaries.map((summary) => (
           <article
             key={summary.id}
-            className="rounded-xl border border-line bg-surface p-4 shadow-sm"
+            className="rounded-2xl border border-line bg-surface p-5 shadow-card"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -103,7 +103,7 @@ export function ShiftReport() {
           </article>
         ))}
         {summaries.length === 0 ? (
-          <p className="rounded-xl border border-line bg-surface p-4 shadow-sm text-sm text-ink-muted">
+          <p className="rounded-2xl border border-line bg-surface p-5 shadow-card text-sm text-ink-muted">
             No closed shift summaries yet.
           </p>
         ) : null}

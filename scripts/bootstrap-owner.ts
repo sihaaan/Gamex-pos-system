@@ -39,24 +39,17 @@ function pendingGstin(): string {
   return `PENDING${randomBytes(4).toString("hex").toUpperCase()}`;
 }
 
-function assertStrongBootstrapPassword(password: string): void {
+function assertBootstrapPassword(password: string): void {
   const lower = password.toLowerCase();
-  const classes = [
-    /[a-z]/.test(password),
-    /[A-Z]/.test(password),
-    /[0-9]/.test(password),
-    /[^a-zA-Z0-9]/.test(password),
-  ].filter(Boolean).length;
 
   if (
-    password.length < 12 ||
-    classes < 3 ||
+    password.length < 8 ||
     lower.includes("gamex") ||
     lower.includes("password") ||
     lower.includes("default")
   ) {
     throw new Error(
-      "BOOTSTRAP_OWNER_PASSWORD must be at least 12 characters, non-default, and use mixed character classes.",
+      "BOOTSTRAP_OWNER_PASSWORD must be at least 8 characters and not use obvious default words.",
     );
   }
 }
@@ -67,7 +60,7 @@ async function main() {
   }
 
   const ownerPassword = env("BOOTSTRAP_OWNER_PASSWORD");
-  assertStrongBootstrapPassword(ownerPassword);
+  assertBootstrapPassword(ownerPassword);
   const passwordHash = await hashPassword(ownerPassword);
 
   const ownerEmail = env("BOOTSTRAP_OWNER_EMAIL").toLowerCase();

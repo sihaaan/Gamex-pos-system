@@ -28,10 +28,10 @@ export function PosHeader({ controller }: { controller: PosController }) {
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2.5">
         <OfflineStatus />
         {derived.isStaff ? (
-          <div className="inline-flex min-h-10 items-center gap-2 rounded-md border border-line-strong bg-surface-muted px-3 text-sm font-medium text-ink-muted">
+          <div className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-line-strong bg-surface-muted px-3 text-sm font-medium text-ink-muted">
             <Lock className="h-4 w-4" />
             <span className="grid leading-tight">
               <span className="text-ink">
@@ -46,9 +46,11 @@ export function PosHeader({ controller }: { controller: PosController }) {
             </span>
           </div>
         ) : (
-          <label className="grid gap-1 text-xs font-medium text-ink-muted">
+          <label className="flex items-center gap-2 text-xs font-medium text-ink-muted">
             Branch
             <Select
+              aria-label="Branch"
+              className="min-h-11 w-40"
               value={derived.currentBranchId}
               onChange={(event) => actions.changeBranch(event.target.value)}
             >
@@ -74,7 +76,7 @@ export function PosHeader({ controller }: { controller: PosController }) {
             ) : null}
             <Button
               aria-label="Close operator shift"
-              className="ml-2"
+              className="ml-1 min-h-11"
               variant="secondary"
               onClick={() => void actions.closeShift()}
               disabled={state.actionPending}
@@ -85,7 +87,7 @@ export function PosHeader({ controller }: { controller: PosController }) {
           </>
         ) : (
           <Button
-            className="min-h-12 px-5 text-base"
+            className="min-h-11 px-5"
             onClick={() => void actions.openShift()}
             disabled={!derived.currentBranchId || state.actionPending}
           >
